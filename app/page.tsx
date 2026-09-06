@@ -1,47 +1,110 @@
-export default function Page() {
+'use client'
+
+import { useState } from 'react'
+import {
+  ArrowDownToLine,
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  Check,
+  ChevronRight,
+  CircleHelp,
+  ClipboardList,
+  CreditCard,
+  Headphones,
+  LayoutDashboard,
+  LockKeyhole,
+  LogOut,
+  Menu,
+  MoreHorizontal,
+  QrCode,
+  Search,
+  Settings,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  TrendingUp,
+  UserRound,
+  Users,
+  WalletCards,
+  X,
+} from 'lucide-react'
+
+type View = 'overview' | 'recharge' | 'activity' | 'profile' | 'admin'
+
+const navItems: { label: string; view: View; icon: typeof LayoutDashboard }[] = [
+  { label: 'Overview', view: 'overview', icon: LayoutDashboard },
+  { label: 'Recharge wallet', view: 'recharge', icon: WalletCards },
+  { label: 'Activity', view: 'activity', icon: ClipboardList },
+  { label: 'Profile & settings', view: 'profile', icon: Settings },
+]
+
+const transactions = [
+  { label: 'Wallet recharge', meta: 'UPI · Today, 10:42 AM', amount: '+₹2,000', status: 'Success', positive: true },
+  { label: 'KolkataFF wallet', meta: 'Transfer · Yesterday, 8:15 PM', amount: '−₹500', status: 'Completed', positive: false },
+  { label: 'Wallet recharge', meta: 'Bank transfer · 12 Jun, 4:20 PM', amount: '+₹5,000', status: 'Success', positive: true },
+]
+
+function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <main
-      style={{
-        colorScheme: 'light dark',
-        position: 'relative',
-        display: 'flex',
-        minHeight: '100vh',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'light-dark(#fff, #000)',
-        color: 'light-dark(#000, #fff)',
-      }}
-    >
-      <svg
-        aria-hidden="true"
-        style={{ width: 80, height: 80 }}
-        width={80}
-        height={80}
-        fill="none"
-        viewBox="0 0 20 20"
-        xmlns="http://www.w3.org/2000/svg"
-        stroke="currentColor"
-        strokeWidth="0.5"
-      >
-        <path
-          d="M14.2 14.2H17V6.9375C17 4.76288 15.2371 3 13.0625 3H5.8V5.8M14.2 14.2V7.79063L7.79062 14.2H14.2ZM14.2 14.2V17H6.9375C4.76288 17 3 15.2371 3 13.0625V5.8H5.8M5.8 5.8V12.2313L12.2313 5.8H5.8Z"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <p
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: 'calc(50% + 56px)',
-          transform: 'translateX(-50%)',
-          whiteSpace: 'nowrap',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'light-dark(#71717a, #a1a1aa)',
-        }}
-      >
-        Your v0 generation will show here.
-      </p>
+    <div className="brand-mark" aria-label="KolkataFF">
+      <div className="brand-sun"><Sparkles size={compact ? 15 : 18} strokeWidth={2.4} /></div>
+      {!compact && <div><strong>Kolkata<span>FF</span></strong><small>PLAY SMART · STAY AHEAD</small></div>}
+    </div>
+  )
+}
+
+function AuthScreen({ onEnter }: { onEnter: () => void }) {
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  return (
+    <main className="auth-shell">
+      <section className="auth-visual">
+        <div className="auth-top"><Logo /></div>
+        <div className="auth-copy">
+          <div className="eyebrow"><span className="pulse-dot" /> INDIA&apos;S SMARTER GAME DESK</div>
+          <h1>Play with<br /><em>clarity.</em></h1>
+          <p>One secure wallet for your KolkataFF experience. Simple, transparent, always in your control.</p>
+          <div className="trust-row"><ShieldCheck size={18} /><span>Trusted by 12,000+ verified players</span></div>
+        </div>
+        <div className="auth-grid-art" aria-hidden="true"><div /><div /><div /><div /><div /><div /></div>
+        <div className="auth-foot">© 2024 KolkataFF <span>•</span> Responsible play only</div>
+      </section>
+      <section className="auth-panel">
+        <div className="auth-mobile-logo"><Logo /></div>
+        <div className="auth-form-wrap">
+          <div className="auth-heading"><p className="muted-label">WELCOME BACK</p><h2>{mode === 'login' ? 'Good to see you.' : 'Create your account.'}</h2><p>{mode === 'login' ? 'Sign in to access your wallet and games.' : 'Start your secure KolkataFF journey.'}</p></div>
+          <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Sign in</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Create account</button></div>
+          {mode === 'signup' && <label>Full name<input placeholder="Your name" /></label>}
+          <label>Mobile number<div className="phone-input"><span>+91</span><input placeholder="98765 43210" /></div></label>
+          {mode === 'login' && <label>Password<div className="password-input"><input type="password" placeholder="Enter password" /><LockKeyhole size={17} /></div></label>}
+          {mode === 'signup' && <label>Set password<div className="password-input"><input type="password" placeholder="Minimum 8 characters" /><LockKeyhole size={17} /></div></label>}
+          {mode === 'login' && <button className="forgot" onClick={() => alert('OTP reset flow will be connected in the backend phase.')}>Forgot password?</button>}
+          <button className="primary-action" onClick={onEnter}>{mode === 'login' ? 'Sign in securely' : 'Continue with OTP'} <ArrowUpRight size={18} /></button>
+          <div className="secure-note"><ShieldCheck size={16} /> Your account is protected with phone OTP verification</div>
+          <p className="fine-print">By continuing, you agree to our <u>Terms of Service</u> and <u>Responsible Play Policy</u>.</p>
+        </div>
+        <div className="auth-help"><CircleHelp size={16} /> Need help? <u>Talk to support</u></div>
+      </section>
     </main>
   )
 }
+
+function Sidebar({ view, setView, onSignOut }: { view: View; setView: (v: View) => void; onSignOut: () => void }) {
+  return <aside className="sidebar"><div className="side-head"><Logo compact /><span className="live-badge">LIVE</span></div><div className="side-section"><p className="side-label">WORKSPACE</p>{navItems.map(({ label, view: itemView, icon: Icon }) => <button key={itemView} className={view === itemView ? 'side-link active' : 'side-link'} onClick={() => setView(itemView)}><Icon size={18} />{label}{itemView === 'recharge' && <span className="side-plus">+</span>}</button>)}</div><div className="side-section"><p className="side-label">MANAGE</p><button className={view === 'admin' ? 'side-link active' : 'side-link'} onClick={() => setView('admin')}><BarChart3 size={18} />Admin preview</button><button className="side-link"><CircleHelp size={18} />Help centre</button></div><div className="side-bottom"><div className="profile-mini"><div className="avatar">AR</div><div><strong>Arjun Roy</strong><small>Verified account</small></div><MoreHorizontal size={18} /></div><button className="side-link signout" onClick={onSignOut}><LogOut size={18} />Sign out</button></div></aside>
+}
+
+function Topbar({ title, onMenu }: { title: string; onMenu: () => void }) { return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open menu"><Menu /></button><div><p className="breadcrumb">KOLKATAFF <ChevronRight size={13} /> ACCOUNT</p><h1>{title}</h1></div><div className="top-actions"><button className="icon-button" aria-label="Search"><Search size={18} /></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18} /><i /></button><div className="top-avatar">AR</div></div></header> }
+
+function Overview({ setView }: { setView: (v: View) => void }) {
+  return <><div className="welcome-row"><div><p className="muted-label">TUESDAY, 18 JUNE 2024</p><h2>Good morning, Arjun <span>✦</span></h2><p className="subtle">Your account is ready. Here&apos;s your latest overview.</p></div><button className="outline-action" onClick={() => setView('recharge')}><ArrowDownToLine size={16} /> Add funds</button></div><div className="stats-grid"><div className="balance-card"><div className="card-top"><span className="muted-label">AVAILABLE BALANCE</span><WalletCards size={19} /></div><strong>₹8,450<span>.00</span></strong><div className="balance-footer"><span className="positive"><TrendingUp size={14} /> +₹2,000 this month</span><span>Updated just now</span></div></div><div className="stat-card"><span className="muted-label">TOTAL PLAYED</span><strong>₹24,860</strong><span className="stat-hint">Across all games</span></div><div className="stat-card"><span className="muted-label">WIN RATE</span><strong>68.4%</strong><span className="stat-hint positive">↑ 4.2% this month</span></div></div><div className="content-grid"><section className="panel activity-panel"><div className="panel-heading"><div><p className="muted-label">RECENT ACTIVITY</p><h3>Your money, clearly tracked.</h3></div><button className="text-action" onClick={() => setView('activity')}>View all <ArrowUpRight size={15} /></button></div><div className="transaction-list">{transactions.map((tx) => <div className="transaction" key={tx.label + tx.meta}><div className={tx.positive ? 'tx-icon credit' : 'tx-icon debit'}>{tx.positive ? <ArrowDownToLine size={17} /> : <ArrowUpRight size={17} />}</div><div className="tx-info"><strong>{tx.label}</strong><span>{tx.meta}</span></div><div className="tx-amount"><strong className={tx.positive ? 'positive' : ''}>{tx.amount}</strong><span><Check size={12} /> {tx.status}</span></div></div>)}</div></section><section className="panel quick-panel"><div className="quick-icon"><QrCode size={23} /></div><p className="muted-label">QUICK RECHARGE</p><h3>Top up in seconds.</h3><p>Use UPI, bank transfer or scan a QR. Funds are reviewed securely.</p><button className="primary-action small" onClick={() => setView('recharge')}>Recharge wallet <ArrowUpRight size={16} /></button><div className="payment-marks"><span>UPI</span><span>IMPS</span><span>NEFT</span></div></section></div><section className="notice-bar"><div className="notice-symbol"><ShieldCheck size={19} /></div><div><strong>Your account is fully verified</strong><p>Phone verification complete. You&apos;re all set to play responsibly.</p></div><button onClick={() => setView('profile')}>View profile <ChevronRight size={16} /></button></section></>
+}
+
+function Recharge() { const [amount, setAmount] = useState('2000'); const [submitted, setSubmitted] = useState(false); return <div className="recharge-page"><div className="page-intro"><p className="muted-label">WALLET MANAGEMENT</p><h2>Add funds securely.</h2><p>Choose an amount and payment method. Your recharge is reviewed before being added to your balance.</p></div><div className="recharge-layout"><section className="panel recharge-card"><div className="step-line"><span className="step active">1</span><div><strong>Choose amount</strong><small>Enter the amount you want to add</small></div></div><div className="amount-input"><span>₹</span><input value={amount} onChange={e => setAmount(e.target.value)} /></div><div className="amount-chips">{['500', '1,000', '2,000', '5,000', '10,000'].map(v => <button key={v} className={amount === v.replace(',', '') ? 'selected' : ''} onClick={() => setAmount(v.replace(',', ''))}>₹{v}</button>)}</div><div className="step-line second"><span className="step">2</span><div><strong>Payment method</strong><small>All methods are secure and encrypted</small></div></div><div className="payment-options"><button className="payment-option selected"><div className="method-icon upi">UPI</div><span><strong>UPI / QR code</strong><small>Instant transfer</small></span><Check size={18} /></button><button className="payment-option"><div className="method-icon bank"><CreditCard size={18} /></div><span><strong>Bank transfer</strong><small>NEFT / IMPS</small></span><ChevronRight size={18} /></button></div><button className="primary-action" onClick={() => setSubmitted(true)}>Continue to payment <ArrowUpRight size={18} /></button>{submitted && <div className="success-message"><Check size={17} /> Recharge request created for ₹{Number(amount).toLocaleString('en-IN')}. Demo only.</div>}</section><aside className="panel payment-aside"><div className="qr-placeholder"><QrCode size={88} strokeWidth={1.2} /><span>QR will appear here</span></div><p className="muted-label">SECURE PAYMENTS</p><h3>Every rupee, accounted for.</h3><ul><li><ShieldCheck size={16} /> Manual review on every recharge</li><li><LockKeyhole size={16} /> Your payment details stay private</li><li><Headphones size={16} /> Support when you need it</li></ul></aside></div></div> }
+
+function Activity() { return <div className="activity-page"><div className="page-intro"><p className="muted-label">LEDGER</p><h2>Transaction history.</h2><p>A clear record of every wallet movement.</p></div><section className="panel table-panel"><div className="table-toolbar"><div className="filter-tabs"><button className="active">All activity</button><button>Recharges</button><button>Transfers</button></div><button className="outline-action"><ArrowDownToLine size={15} /> Export</button></div><div className="table-wrap"><table><thead><tr><th>DESCRIPTION</th><th>DATE</th><th>METHOD</th><th>AMOUNT</th><th>STATUS</th></tr></thead><tbody>{transactions.concat([{label: 'KolkataFF wallet', meta: '10 Jun, 9:30 PM', amount: '−₹1,200', status: 'Completed', positive: false}]).map((tx, i) => <tr key={i}><td><strong>{tx.label}</strong></td><td>{tx.meta.split(' · ')[1] || tx.meta}</td><td>{tx.meta.split(' · ')[0]}</td><td className={tx.positive ? 'positive' : ''}>{tx.amount}</td><td><span className="status-pill"><Check size={12} /> {tx.status}</span></td></tr>)}</tbody></table></div></section></div> }
+
+function Profile() { return <div className="profile-page"><div className="page-intro"><p className="muted-label">YOUR ACCOUNT</p><h2>Profile & settings.</h2><p>Manage your identity, security and preferences.</p></div><section className="panel profile-card"><div className="profile-hero"><div className="large-avatar">AR</div><div><h3>Arjun Roy</h3><p>Member since June 2024 <span className="verified-pill"><Check size={12} /> Verified</span></p></div><button className="outline-action">Edit profile</button></div><div className="settings-list"><div><div className="setting-icon"><Smartphone size={18} /></div><span><strong>Phone number</strong><small>+91 98765 43210 · Verified</small></span><ChevronRight size={17} /></div><div><div className="setting-icon"><LockKeyhole size={18} /></div><span><strong>Password & security</strong><small>Last changed 18 days ago</small></span><ChevronRight size={17} /></div><div><div className="setting-icon"><Bell size={18} /></div><span><strong>Notifications</strong><small>Push notifications enabled</small></span><ChevronRight size={17} /></div></div></section></div> }
+
+function Admin() { const [saved, setSaved] = useState(false); return <div className="admin-page"><div className="page-intro admin-intro"><div><p className="muted-label">CONTROL ROOM · DEMO</p><h2>Operations overview.</h2><p>Manage players, payments and the KolkataFF experience.</p></div><button className="primary-action small" onClick={() => setSaved(true)}><Check size={16} /> {saved ? 'Changes saved' : 'Save changes'}</button></div><div className="admin-stats"><div className="stat-card"><Users size={19} /><span className="muted-label">TOTAL USERS</span><strong>12,482</strong><small className="positive">+8.2% this month</small></div><div className="stat-card"><WalletCards size={19} /><span className="muted-label">PENDING RECHARGES</span><strong>24</strong><small>₹46,800 awaiting review</small></div><div className="stat-card"><TrendingUp size={19} /><span className="muted-label">TODAY&apos;S VOLUME</span><strong>₹2.84L</strong><small className="positive">+12.4% vs yesterday</small></div></div><div className="admin-grid"><section className="panel table-panel"><div className="panel-heading"><div><p className="muted-label">PAYMENT QUEUE</p><h3>Recharge requests</h3></div><button className="text-action">View queue <ArrowUpRight size={15} /></button></div><div className="admin-requests">{[['Rohan Das','₹5,000','UPI · 2 min ago'],['Sneha Paul','₹2,500','Bank transfer · 8 min ago'],['Amit Saha','₹10,000','UPI · 14 min ago']].map(([name, amount, meta]) => <div className="request-row" key={name}><div className="avatar small-avatar">{name.split(' ').map(n => n[0]).join('')}</div><div><strong>{name}</strong><small>{meta}</small></div><b>{amount}</b><button className="approve"><Check size={15} /> Approve</button><button className="icon-button"><MoreHorizontal size={17} /></button></div>)}</div></section><section className="panel admin-settings"><p className="muted-label">PAYMENT SETTINGS</p><h3>Where money lands.</h3><p className="subtle">Update details shown to players on the recharge screen.</p><label>UPI ID<input defaultValue="kolkataff@upi" /></label><label>Account holder<input defaultValue="KolkataFF Gaming Pvt. Ltd." /></label><label>Bank account<input defaultValue="•••• •••• 4821" /></label><button className="outline-action"><QrCode size={16} /> Replace QR code</button></section></div></div> }
+
+export default function Page() { const [authed, setAuthed] = useState(false); const [view, setView] = useState<View>('overview'); const [mobileOpen, setMobileOpen] = useState(false); if (!authed) return <AuthScreen onEnter={() => setAuthed(true)} />; const titles: Record<View, string> = { overview: 'Overview', recharge: 'Recharge wallet', activity: 'Activity', profile: 'Profile & settings', admin: 'Admin preview' }; return <main className="app-shell"><div className={mobileOpen ? 'sidebar-wrap open' : 'sidebar-wrap'}><Sidebar view={view} setView={v => { setView(v); setMobileOpen(false) }} onSignOut={() => setAuthed(false)} />{mobileOpen && <button className="drawer-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X /></button>}</div><div className="main-area"><Topbar title={titles[view]} onMenu={() => setMobileOpen(true)} /><div className="page-content">{view === 'overview' && <Overview setView={setView} />}{view === 'recharge' && <Recharge />}{view === 'activity' && <Activity />}{view === 'profile' && <Profile />}{view === 'admin' && <Admin />}</div></div></main> }
