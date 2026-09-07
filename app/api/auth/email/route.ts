@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { emailChallenges, users } from '@/lib/db/schema'
 import { createSession } from '@/lib/auth'
-import { createToken, hashPassword, hashToken, normalizeEmail, sendAuthEmail, verifyPassword } from '@/lib/email-auth'
+import { createOtp, createToken, hashPassword, hashToken, normalizeEmail, sendAuthEmail, sendAuthOtp, verifyPassword } from '@/lib/email-auth'
 
 const appUrl = (request: Request) => process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
 const response = (body: unknown, status = 200) => NextResponse.json(body, { status })
@@ -23,19 +23,31 @@ export async function POST(request: Request) {
       ? await db.update(users).set({ name, passwordHash: hashPassword(password), updatedAt: new Date() }).where(eq(users.id, existing[0].id)).returning({ id: users.id })
       : await db.insert(users).values({ email, phone: `email:${email}`, name, passwordHash: hashPassword(password) }).returning({ id: users.id })
     await db.update(emailChallenges).set({ consumedAt: new Date() }).where(and(eq(emailChallenges.email, email), eq(emailChallenges.type, 'verify'), isNull(emailChallenges.consumedAt)))
-    const rawToken = createToken()
-    await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'verify', expiresAt: new Date(Date.now() + 30 * 60 * 1000) })
-    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl(request)}/api/auth/email/verify?token=${rawToken}`, `verify-email/${user[0].id}-${hashToken(rawToken).slice(0, 12)}`)
-    return response({ ok: true, message: 'Verification email sent. Check your inbox and spam folder.' }, existing[0] ? 200 : 201)
+    const code = createOtp()
+    await db.insert(emailChallenges).values({ email, tokenHash: hashToken(code), type: 'signup-otp', expiresAt: new Date(Date.now() + 10 * 60 * 1000) })
+    await sendAuthOtp(email, code, `signup-otp/${user[0].id}-${hashToken(code).slice(0, 12)}`)
+    return response({ ok: true, requiresOtp: true, message: 'We sent a 6-digit verification code to your email.' }, existing[0] ? 200 : 201)
   }
   if (action === 'resend-verification') {
     const result = await db.select({ id: users.id, emailVerified: users.emailVerified }).from(users).where(eq(users.email, email)).limit(1)
     if (!result[0] || result[0].emailVerified) return response({ ok: true, message: 'If the account needs verification, a new email has been sent.' })
     await db.update(emailChallenges).set({ consumedAt: new Date() }).where(and(eq(emailChallenges.email, email), eq(emailChallenges.type, 'verify'), isNull(emailChallenges.consumedAt)))
-    const rawToken = createToken()
-    await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'verify', expiresAt: new Date(Date.now() + 30 * 60 * 1000) })
-    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl(request)}/api/auth/email/verify?token=${rawToken}`, `verify-email-resend/${result[0].id}-${hashToken(rawToken).slice(0, 12)}`)
-    return response({ ok: true, message: 'A new verification email has been sent.' })
+    const code = createOtp()
+    await db.update(emailChallenges).set({ consumedAt: new Date() }).where(and(eq(emailChallenges.email, email), eq(emailChallenges.type, 'signup-otp'), isNull(emailChallenges.consumedAt)))
+    await db.insert(emailChallenges).values({ email, tokenHash: hashToken(code), type: 'signup-otp', expiresAt: new Date(Date.now() + 10 * 60 * 1000) })
+    await sendAuthOtp(email, code, `signup-otp-resend/${result[0].id}-${hashToken(code).slice(0, 12)}`)
+    return response({ ok: true, message: 'A new 6-digit verification code has been sent.' })
+  }
+  if (action === 'verify-signup-otp') {
+    const code = typeof body?.code === 'string' ? body.code.replace(/\D/g, '') : ''
+    if (!/^\d{6}$/.test(code)) return response({ error: 'Enter the 6-digit verification code.' }, 400)
+    const challenge = await db.select().from(emailChallenges).where(and(eq(emailChallenges.email, email), eq(emailChallenges.tokenHash, hashToken(code)), eq(emailChallenges.type, 'signup-otp'), isNull(emailChallenges.consumedAt), gt(emailChallenges.expiresAt, new Date()))).limit(1)
+    if (!challenge[0]) return response({ error: 'That code is invalid or expired. Request a new code.' }, 400)
+    await db.update(users).set({ emailVerified: true, updatedAt: new Date() }).where(eq(users.email, email))
+    await db.update(emailChallenges).set({ consumedAt: new Date() }).where(eq(emailChallenges.id, challenge[0].id))
+    const user = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+    if (user[0]) await createSession(user[0].id)
+    return response({ ok: true })
   }
   if (action === 'login') {
     const result = await db.select().from(users).where(eq(users.email, email)).limit(1)

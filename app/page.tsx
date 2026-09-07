@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -64,14 +64,19 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [verificationPending, setVerificationPending] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [resendSeconds, setResendSeconds] = useState(0)
+  const otpInputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  useEffect(() => { if (resendSeconds <= 0) return; const timer = window.setInterval(() => setResendSeconds(value => value - 1), 1000); return () => window.clearInterval(timer) }, [resendSeconds])
   const submit = async (action = mode) => {
+    if (action === 'resend-verification' && resendSeconds > 0) return
     setBusy(true); setError(''); setMessage('')
     try {
       const response = await fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, name, email, password }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to continue')
-      if (action === 'login') onAuthenticated(); else { setMessage(result.message); if (action === 'signup' || action === 'resend-verification') setVerificationPending(true) }
+      if (action === 'login') onAuthenticated(); else if (action === 'verify-signup-otp') onAuthenticated(); else { setMessage(result.message); if (action === 'signup' || action === 'resend-verification') { setVerificationPending(true); setResendSeconds(45); window.setTimeout(() => otpInputRef.current?.focus(), 50) } }
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to continue') } finally { setBusy(false) }
   }
   return (
@@ -97,8 +102,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
           {mode !== 'forgot' && <label>Password<div className="password-input"><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} placeholder={mode === 'login' ? 'Enter your password' : 'At least 8 characters'} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>}
           {mode === 'login' && <div className="form-row"><label className="checkbox-label"><input type="checkbox" /> Remember me</label><button type="button" className="forgot" onClick={() => { setMode('forgot'); setError(''); setMessage('') }}>Forgot password?</button></div>}
           {error && <p role="alert" className="error-message">{error}</p>}{message && <p className="secure-note">{message}</p>}
-          {verificationPending && <div className="verification-box"><strong>Check your inbox</strong><span>Open the verification link in the email to activate your account. Check spam if it is missing.</span><button type="button" className="forgot" onClick={() => submit('resend-verification')} disabled={busy}>Resend verification email</button></div>}
-          <button className="primary-action" onClick={() => submit()} disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : mode === 'signup' ? 'Send verification email' : 'Send reset link'} <ArrowUpRight size={18} /></button>
+          {verificationPending ? <div className="otp-verification-card"><div className="otp-card-icon"><Mail size={20} /></div><strong>Enter your verification code</strong><span>We sent a 6-digit code to <b>{email}</b></span><input ref={otpInputRef} className="otp-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" aria-label="6-digit email verification code" /><button className="primary-action" onClick={() => submit('verify-signup-otp')} disabled={busy || otp.length !== 6}>{busy ? 'Verifying…' : 'Verify email'} <ArrowUpRight size={18} /></button><div className="otp-actions"><button type="button" className="forgot" onClick={() => submit('resend-verification')} disabled={busy || resendSeconds > 0}>{resendSeconds > 0 ? `Resend code in ${resendSeconds}s` : 'Resend code'}</button><button type="button" className="forgot" onClick={() => { setVerificationPending(false); setOtp(''); setError('') }}>Change email</button></div></div> : <button className="primary-action" onClick={() => submit()} disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : mode === 'signup' ? 'Send verification code' : 'Send reset link'} <ArrowUpRight size={18} /></button>}
           {mode === 'forgot' && <button type="button" className="forgot" onClick={() => setMode('login')}>Back to sign in</button>}
           <div className="secure-note"><ShieldCheck size={16} /> Your information is encrypted and protected</div>
           <p className="fine-print">By continuing, you agree to our <u>Terms of Service</u> and <u>Responsible Play Policy</u>.</p>
