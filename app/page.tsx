@@ -73,7 +73,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
     if (action === 'resend-verification' && resendSeconds > 0) return
     setBusy(true); setError(''); setMessage('')
     try {
-      const response = await fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, name, email, password }) })
+      const response = await fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, name, email, password, code: otp }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to continue')
       if (action === 'login') onAuthenticated(); else if (action === 'verify-signup-otp') onAuthenticated(); else { setMessage(result.message); if (action === 'signup' || action === 'resend-verification') { setVerificationPending(true); setResendSeconds(45); window.setTimeout(() => otpInputRef.current?.focus(), 50) } }
@@ -96,7 +96,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
         <div className="auth-mobile-logo"><Logo /></div>
         <div className="auth-form-wrap">
           <div className="auth-heading"><p className="muted-label">{mode === 'login' ? 'WELCOME BACK' : mode === 'signup' ? 'JOIN KOLKATAFF' : 'ACCOUNT RECOVERY'}</p><h2>{mode === 'login' ? 'Good to see you.' : mode === 'signup' ? 'Make your next move.' : 'Reset your password.'}</h2><p>{mode === 'login' ? 'Sign in to access your wallet and games.' : mode === 'signup' ? 'Create your secure KolkataFF account.' : 'We will send a secure reset link to your inbox.'}</p></div>
-          {mode !== 'forgot' && <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); setMessage('') }}>Sign in</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setMessage('') }}>Create account</button></div>}
+          {mode !== 'forgot' && <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setVerificationPending(false); setOtp(''); setError(''); setMessage('') }}>Sign in</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setVerificationPending(false); setOtp(''); setError(''); setMessage('') }}>Create account</button></div>}
           {mode === 'signup' && <label>Full name<input autoComplete="name" value={name} onChange={event => setName(event.target.value)} placeholder="Your name" /></label>}
           <label>Email address<input type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@company.com" /></label>
           {mode !== 'forgot' && <label>Password<div className="password-input"><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} placeholder={mode === 'login' ? 'Enter your password' : 'At least 8 characters'} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>}
