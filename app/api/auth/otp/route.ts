@@ -20,9 +20,11 @@ function authHeaders() { return { 'Content-Type': 'application/json', Accept: 'a
 
 async function msg91(path: string, body: Record<string, string>) {
   const response = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ widgetId: process.env.MSG91_WIDGET_ID, tokenAuth: process.env.MSG91_WIDGET_AUTH_TOKEN, ...body }), cache: 'no-store' })
-  const payload = await response.json().catch(() => null)
-  if (!response.ok || payload?.type === 'error' || payload?.type === 'error_message') {
-    throw new Error(typeof payload?.message === 'string' ? payload.message : 'MSG91 request failed')
+  const raw = await response.text()
+  const payload = (() => { try { return JSON.parse(raw) } catch { return null } })()
+  if (!response.ok || payload?.type === 'error' || payload?.type === 'error_message' || payload?.success === false) {
+    const providerMessage = typeof payload?.message === 'string' ? payload.message : typeof payload?.msg === 'string' ? payload.msg : typeof payload?.error === 'string' ? payload.error : raw.trim()
+    throw new Error(providerMessage || `MSG91 request failed (${response.status})`)
   }
   return payload as { reqId?: string; message?: string; type?: string; data?: { reqId?: string; accessToken?: string } }
 }
