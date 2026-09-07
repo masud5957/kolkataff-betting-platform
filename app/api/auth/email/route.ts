@@ -5,7 +5,7 @@ import { emailChallenges, users } from '@/lib/db/schema'
 import { createSession } from '@/lib/auth'
 import { createToken, hashPassword, hashToken, normalizeEmail, sendAuthEmail, verifyPassword } from '@/lib/email-auth'
 
-const appUrl = () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const appUrl = (request: Request) => process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
 const response = (body: unknown, status = 200) => NextResponse.json(body, { status })
 
 export async function POST(request: Request) {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const user = await db.insert(users).values({ email, phone: `email:${email}`, name, passwordHash: hashPassword(password) }).returning({ id: users.id })
     const rawToken = createToken()
     await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'verify', expiresAt: new Date(Date.now() + 30 * 60 * 1000) })
-    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl()}/api/auth/email/verify?token=${rawToken}`, `verify-email/${user[0].id}`)
+    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl(request)}/api/auth/email/verify?token=${rawToken}`, `verify-email/${user[0].id}`)
     return response({ ok: true, message: 'Check your email to verify your account.' }, 201)
   }
   if (action === 'login') {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
   if (action === 'forgot') {
     const result = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
-    if (result[0]) { const rawToken = createToken(); await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'reset', expiresAt: new Date(Date.now() + 30 * 60 * 1000) }); await sendAuthEmail(email, 'Reset your KolkataFF password', 'Reset your password', 'Use the secure link below to choose a new password.', `${appUrl()}/?reset=${rawToken}`, `reset-password/${result[0].id}`) }
+    if (result[0]) { const rawToken = createToken(); await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'reset', expiresAt: new Date(Date.now() + 30 * 60 * 1000) }); await sendAuthEmail(email, 'Reset your KolkataFF password', 'Reset your password', 'Use the secure link below to choose a new password.', `${appUrl(request)}/?reset=${rawToken}`, `reset-password/${result[0].id}`) }
     return response({ ok: true, message: 'If an account exists, a reset link has been sent.' })
   }
   if (action === 'reset') {
