@@ -1,0 +1,13 @@
+import { NextResponse } from 'next/server'
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { walletLedger, wallets } from '@/lib/db/schema'
+import { getCurrentUser } from '@/lib/auth'
+
+export async function GET() {
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const wallet = (await db.select().from(wallets).where(eq(wallets.userId, user.id)).limit(1))[0]
+  const transactions = await db.select().from(walletLedger).where(eq(walletLedger.userId, user.id))
+  return NextResponse.json({ balancePaise: wallet?.balancePaise ?? 0, transactions })
+}
