@@ -21,8 +21,10 @@ function authHeaders() { return { authkey: process.env.MSG91_WIDGET_AUTH_TOKEN ?
 async function msg91(path: string, body: Record<string, string>) {
   const response = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ widgetId: process.env.MSG91_WIDGET_ID, ...body }), cache: 'no-store' })
   const payload = await response.json().catch(() => null)
-  if (!response.ok || payload?.type === 'error') throw new Error('MSG91 request failed')
-  return payload as { reqId?: string; message?: string; type?: string }
+  if (!response.ok || payload?.type === 'error' || payload?.type === 'error_message') {
+    throw new Error(typeof payload?.message === 'string' ? payload.message : 'MSG91 request failed')
+  }
+  return payload as { reqId?: string; message?: string; type?: string; data?: { reqId?: string; accessToken?: string } }
 }
 
 export async function POST(request: Request) {
@@ -35,10 +37,11 @@ export async function POST(request: Request) {
   try {
     if (action === 'send') {
       const result = await msg91(MSG91_SEND_URL, { identifier: phone })
-      if (!result.reqId) throw new Error('Missing OTP request id')
+      const requestId = result.reqId ?? result.data?.reqId
+      if (!requestId) throw new Error('Missing OTP request id')
       await db.delete(otpChallenges).where(eq(otpChallenges.phone, phone))
-      await db.insert(otpChallenges).values({ phone, codeHash: hash(`${phone}:${result.reqId}`), expiresAt: new Date(Date.now() + 5 * 60 * 1000) })
-      return NextResponse.json({ ok: true, reqId: result.reqId })
+      await db.insert(otpChallenges).values({ phone, codeHash: hash(`${phone}:${requestId}`), expiresAt: new Date(Date.now() + 5 * 60 * 1000) })
+      return NextResponse.json({ ok: true, reqId: requestId })
     }
 
     const reqId = typeof body?.reqId === 'string' ? body.reqId : ''
