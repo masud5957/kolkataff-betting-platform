@@ -89,7 +89,7 @@ function AuthScreen({ onEnter }: { onEnter: () => void }) {
   )
 }
 
-declare global { interface Window { initSendOTP?: (config: { widgetId: string; tokenAuth: string; exposeMethods: boolean }) => void; sendOtp?: (identifier: string, success: (data: { reqId?: string; message?: string }) => void, error: (error: unknown) => void) => void; verifyOtp?: (otp: string, success: (data: { accessToken?: string; message?: string }) => void, error: (error: unknown) => void, reqId?: string) => void } }
+declare global { interface Window { initSendOTP?: (config: { widgetId: string; tokenAuth: string; identifier: string; exposeMethods: boolean; success: (data: { accessToken?: string; token?: string }) => void; failure: (error: unknown) => void }) => void } }
 
 function RealAuthScreen({ onVerified }: { onVerified: () => void }) {
   const [phone, setPhone] = useState('')
@@ -98,40 +98,34 @@ function RealAuthScreen({ onVerified }: { onVerified: () => void }) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    const initialize = async () => {
-      try {
-        const config = await fetch('/api/auth/widget-config', { cache: 'no-store' }).then(response => response.json())
-        const deadline = Date.now() + 10000
-        while (!window.initSendOTP && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100))
-        if (!window.initSendOTP) throw new Error('MSG91 widget is unavailable. Disable ad blockers and refresh.')
-        window.initSendOTP({ widgetId: config.widgetId, tokenAuth: config.tokenAuth, exposeMethods: true })
-        if (!cancelled) setError('')
-      } catch (error) { if (!cancelled) setError(error instanceof Error ? error.message : 'Unable to load OTP service.') }
-    }
-    initialize()
-    return () => { cancelled = true }
-  }, [])
   const submit = async () => {
     setBusy(true); setError('')
     try {
-      const identifier = `91${phone.replace(/\D/g, '').replace(/^0/, '')}`
-      if (step === 'phone') {
-        if (!window.sendOtp) throw new Error('MSG91 widget is still loading. Please try again.')
-        window.sendOtp(identifier, data => { setReqId(data.reqId ?? ''); setStep('otp'); setBusy(false) }, error => { setError(typeof error === 'string' ? error : 'Unable to send OTP.'); setBusy(false) })
-        return
-      }
-      if (!window.verifyOtp) throw new Error('MSG91 widget is still loading. Please try again.')
-      window.verifyOtp(otp, async data => {
-        const response = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, reqId, widgetToken: data.accessToken ?? 'verified' }) })
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.error || 'Unable to create session')
-        onVerified()
-      }, error => { setError(typeof error === 'string' ? error : 'Unable to verify OTP.'); setBusy(false) }, reqId)
+      const digits = phone.replace(/\D/g, '')
+      const identifier = `91${digits.replace(/^0/, '')}`
+      if (!/^91\d{10}$/.test(identifier)) throw new Error('Enter a valid Indian mobile number.')
+      const config = await fetch('/api/auth/widget-config', { cache: 'no-store' }).then(response => response.json())
+      const deadline = Date.now() + 10000
+      while (!window.initSendOTP && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100))
+      if (!window.initSendOTP) throw new Error('MSG91 widget script failed to load. Disable ad blockers and refresh.')
+      window.initSendOTP({
+        widgetId: config.widgetId,
+        tokenAuth: config.tokenAuth,
+        identifier,
+        exposeMethods: false,
+        success: async data => {
+          const widgetToken = data.accessToken ?? data.token
+          if (!widgetToken) throw new Error('MSG91 returned no access token.')
+          const response = await fetch('/api/auth/otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', phone, widgetToken }) })
+          const result = await response.json()
+          if (!response.ok) throw new Error(result.error || 'Unable to create session')
+          onVerified()
+        },
+        failure: error => { setError(typeof error === 'string' ? error : 'MSG91 could not verify the OTP.'); setBusy(false) },
+      })
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to continue'); setBusy(false) }
   }
-  return <main className="auth-shell"><section className="auth-visual"><div className="auth-top"><Logo /></div><div className="auth-copy"><div className="eyebrow"><span className="pulse-dot" /> INDIA&apos;S SMARTER GAME DESK</div><h1>Play with<br /><em>clarity.</em></h1><p>One secure wallet for your KolkataFF experience. Simple, transparent, always in your control.</p><div className="trust-row"><ShieldCheck size={18} /><span>Phone-verified accounts only</span></div></div><div className="auth-grid-art" aria-hidden="true"><div /><div /><div /><div /><div /><div /></div><div className="auth-foot">© 2024 KolkataFF <span>•</span> Responsible play only</div></section><section className="auth-panel"><div className="auth-mobile-logo"><Logo /></div><div className="auth-form-wrap"><div className="auth-heading"><p className="muted-label">SECURE ACCESS</p><h2>{step === 'phone' ? 'Welcome back.' : 'Check your phone.'}</h2><p>{step === 'phone' ? 'Enter your mobile number to receive a one-time password.' : `We sent a verification code to +${phone.replace(/\D/g, '')}.`}</p></div>{step === 'phone' ? <label>Mobile number<div className="phone-input"><span>+91</span><input inputMode="numeric" value={phone} onChange={e => setPhone(e.target.value)} placeholder="98765 43210" /></div></label> : <label>One-time password<input inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value)} placeholder="Enter 6-digit OTP" maxLength={8} /></label>}{error && <p role="alert" className="error-message">{error}</p>}<button className="primary-action" onClick={submit} disabled={busy}>{busy ? 'Please wait…' : step === 'phone' ? 'Send OTP' : 'Verify and continue'} <ArrowUpRight size={18} /></button>{step === 'otp' && <button className="forgot" onClick={() => { setStep('phone'); setOtp(''); setError('') }}>Use a different number</button>}<div className="secure-note"><ShieldCheck size={16} /> OTP verification is handled securely by MSG91</div><p className="fine-print">By continuing, you agree to our <u>Terms of Service</u> and <u>Responsible Play Policy</u>.</p></div><div className="auth-help"><CircleHelp size={16} /> Need help? <u>Talk to support</u></div></section></main>
+  return <main className="auth-shell"><section className="auth-visual"><div className="auth-top"><Logo /></div><div className="auth-copy"><div className="eyebrow"><span className="pulse-dot" /> INDIA&apos;S SMARTER GAME DESK</div><h1>Play with<br /><em>clarity.</em></h1><p>One secure wallet for your KolkataFF experience. Simple, transparent, always in your control.</p><div className="trust-row"><ShieldCheck size={18} /><span>Phone-verified accounts only</span></div></div><div className="auth-grid-art" aria-hidden="true"><div /><div /><div /><div /><div /><div /></div><div className="auth-foot">© 2024 KolkataFF <span>•</span> Responsible play only</div></section><section className="auth-panel"><div className="auth-mobile-logo"><Logo /></div><div className="auth-form-wrap"><div className="auth-heading"><p className="muted-label">SECURE ACCESS</p><h2>Welcome back.</h2><p>Enter your mobile number. MSG91 will open its secure OTP verification window.</p></div><label>Mobile number<div className="phone-input"><span>+91</span><input inputMode="numeric" value={phone} onChange={e => setPhone(e.target.value)} placeholder="98765 43210" /></div></label>{error && <p role="alert" className="error-message">{error}</p>}<button className="primary-action" onClick={submit} disabled={busy}>{busy ? 'Opening verification…' : 'Continue with OTP'} <ArrowUpRight size={18} /></button><div className="secure-note"><ShieldCheck size={16} /> OTP verification is handled securely by MSG91</div><p className="fine-print">By continuing, you agree to our <u>Terms of Service</u> and <u>Responsible Play Policy</u>.</p></div><div className="auth-help"><CircleHelp size={16} /> Need help? <u>Talk to support</u></div></section></main>
 }
 
 function Sidebar({ view, setView, onSignOut }: { view: View; setView: (v: View) => void; onSignOut: () => void }) {
