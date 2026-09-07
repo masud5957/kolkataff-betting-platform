@@ -1,0 +1,48 @@
+import { and, eq, gt, isNull } from 'drizzle-orm'
+import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { emailChallenges, users } from '@/lib/db/schema'
+import { createSession } from '@/lib/auth'
+import { createToken, hashPassword, hashToken, normalizeEmail, sendAuthEmail, verifyPassword } from '@/lib/email-auth'
+
+const appUrl = () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const response = (body: unknown, status = 200) => NextResponse.json(body, { status })
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null)
+  const action = body?.action
+  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
+  const password = typeof body?.password === 'string' ? body.password : ''
+  if (!/^\S+@\S+\.\S+$/.test(email)) return response({ error: 'Enter a valid email address.' }, 400)
+  if (action === 'signup') {
+    const name = typeof body?.name === 'string' ? body.name.trim() : ''
+    if (name.length < 2 || password.length < 8) return response({ error: 'Enter your name and a password of at least 8 characters.' }, 400)
+    const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+    if (existing[0]) return response({ error: 'An account with this email already exists.' }, 409)
+    const user = await db.insert(users).values({ email, phone: `email:${email}`, name, passwordHash: hashPassword(password) }).returning({ id: users.id })
+    const rawToken = createToken()
+    await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'verify', expiresAt: new Date(Date.now() + 30 * 60 * 1000) })
+    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl()}/api/auth/email/verify?token=${rawToken}`, `verify-email/${user[0].id}`)
+    return response({ ok: true, message: 'Check your email to verify your account.' }, 201)
+  }
+  if (action === 'login') {
+    const result = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    const user = result[0]
+    if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) return response({ error: 'Invalid email or password.' }, 401)
+    if (!user.emailVerified) return response({ error: 'Please verify your email before signing in.' }, 403)
+    await createSession(user.id)
+    return response({ ok: true })
+  }
+  if (action === 'forgot') {
+    const result = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+    if (result[0]) { const rawToken = createToken(); await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'reset', expiresAt: new Date(Date.now() + 30 * 60 * 1000) }); await sendAuthEmail(email, 'Reset your KolkataFF password', 'Reset your password', 'Use the secure link below to choose a new password.', `${appUrl()}/?reset=${rawToken}`, `reset-password/${result[0].id}`) }
+    return response({ ok: true, message: 'If an account exists, a reset link has been sent.' })
+  }
+  if (action === 'reset') {
+    if (password.length < 8 || typeof body?.token !== 'string') return response({ error: 'Invalid password reset request.' }, 400)
+    const challenge = await db.select().from(emailChallenges).where(and(eq(emailChallenges.tokenHash, hashToken(body.token)), eq(emailChallenges.type, 'reset'), isNull(emailChallenges.consumedAt), gt(emailChallenges.expiresAt, new Date()))).limit(1)
+    if (!challenge[0]) return response({ error: 'This reset link is invalid or expired.' }, 400)
+    await db.update(users).set({ passwordHash: hashPassword(password), updatedAt: new Date() }).where(eq(users.email, challenge[0].email)); await db.update(emailChallenges).set({ consumedAt: new Date() }).where(eq(emailChallenges.id, challenge[0].id)); return response({ ok: true })
+  }
+  return response({ error: 'Unsupported auth action.' }, 400)
+}

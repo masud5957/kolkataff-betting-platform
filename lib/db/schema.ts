@@ -3,13 +3,25 @@ import { pgTable, text, integer, timestamp, uuid, uniqueIndex, boolean } from 'd
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   phone: text('phone').notNull(),
+  email: text('email').unique(),
   name: text('name').notNull(),
+  emailVerified: boolean('email_verified').notNull().default(false),
   passwordHash: text('password_hash'),
   role: text('role').notNull().default('user'),
   phoneVerified: boolean('phone_verified').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({ phoneIdx: uniqueIndex('users_phone_idx').on(table.phone) }))
+
+export const emailChallenges = pgTable('email_challenges', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  type: text('type').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ tokenIdx: uniqueIndex('email_challenges_token_hash_idx').on(table.tokenHash) }))
 
 export const otpChallenges = pgTable('otp_challenges', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -81,7 +93,7 @@ export const auditLogs = pgTable('audit_logs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
-export const schema = { users, otpChallenges, sessions, wallets, rechargeRequests, walletLedger, paymentSettings, auditLogs }
+export const schema = { users, emailChallenges, otpChallenges, sessions, wallets, rechargeRequests, walletLedger, paymentSettings, auditLogs }
 export type User = typeof users.$inferSelect
 export type RechargeRequest = typeof rechargeRequests.$inferSelect
 export type Wallet = typeof wallets.$inferSelect

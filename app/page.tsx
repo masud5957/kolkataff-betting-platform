@@ -54,9 +54,24 @@ function Logo({ compact = false }: { compact?: boolean }) {
   )
 }
 
-function AuthScreen({ onEnter }: { onEnter: () => void }) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [showPassword, setShowPassword] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const response = await fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: mode, name, email, password }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to continue')
+      if (mode === 'login') onAuthenticated(); else setMessage(result.message)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to continue') } finally { setBusy(false) }
+  }
   return (
     <main className="auth-shell">
       <section className="auth-visual">
@@ -73,13 +88,15 @@ function AuthScreen({ onEnter }: { onEnter: () => void }) {
       <section className="auth-panel">
         <div className="auth-mobile-logo"><Logo /></div>
         <div className="auth-form-wrap">
-          <div className="auth-heading"><p className="muted-label">{mode === 'login' ? 'WELCOME BACK' : 'JOIN KOLKATAFF'}</p><h2>{mode === 'login' ? 'Good to see you.' : 'Make your next move.'}</h2><p>{mode === 'login' ? 'Sign in to access your wallet and games.' : 'Create your secure account in a few simple steps.'}</p></div>
-          <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Sign in</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Create account</button></div>
-          {mode === 'signup' && <label>Full name<input autoComplete="name" placeholder="Your name" /></label>}
-          <label>Email address<input type="email" autoComplete="email" placeholder="you@company.com" /></label>
-          <label>Password<div className="password-input"><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'Enter your password' : 'At least 8 characters'} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>
-          {mode === 'login' ? <div className="form-row"><label className="checkbox-label"><input type="checkbox" /> Remember me</label><button type="button" className="forgot">Forgot password?</button></div> : <p className="password-hint">Use 8 or more characters with a mix of letters and numbers.</p>}
-          <button className="primary-action" onClick={onEnter}>{mode === 'login' ? 'Sign in securely' : 'Create account'} <ArrowUpRight size={18} /></button>
+          <div className="auth-heading"><p className="muted-label">{mode === 'login' ? 'WELCOME BACK' : mode === 'signup' ? 'JOIN KOLKATAFF' : 'ACCOUNT RECOVERY'}</p><h2>{mode === 'login' ? 'Good to see you.' : mode === 'signup' ? 'Make your next move.' : 'Reset your password.'}</h2><p>{mode === 'login' ? 'Sign in to access your wallet and games.' : mode === 'signup' ? 'Create your secure KolkataFF account.' : 'We will send a secure reset link to your inbox.'}</p></div>
+          {mode !== 'forgot' && <div className="auth-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setError(''); setMessage('') }}>Sign in</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setError(''); setMessage('') }}>Create account</button></div>}
+          {mode === 'signup' && <label>Full name<input autoComplete="name" value={name} onChange={event => setName(event.target.value)} placeholder="Your name" /></label>}
+          <label>Email address<input type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@company.com" /></label>
+          {mode !== 'forgot' && <label>Password<div className="password-input"><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} placeholder={mode === 'login' ? 'Enter your password' : 'At least 8 characters'} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>}
+          {mode === 'login' && <div className="form-row"><label className="checkbox-label"><input type="checkbox" /> Remember me</label><button type="button" className="forgot" onClick={() => { setMode('forgot'); setError(''); setMessage('') }}>Forgot password?</button></div>}
+          {error && <p role="alert" className="error-message">{error}</p>}{message && <p className="secure-note">{message}</p>}
+          <button className="primary-action" onClick={submit} disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : mode === 'signup' ? 'Create account' : 'Send reset link'} <ArrowUpRight size={18} /></button>
+          {mode === 'forgot' && <button type="button" className="forgot" onClick={() => setMode('login')}>Back to sign in</button>}
           <div className="secure-note"><ShieldCheck size={16} /> Your information is encrypted and protected</div>
           <p className="fine-print">By continuing, you agree to our <u>Terms of Service</u> and <u>Responsible Play Policy</u>.</p>
         </div>
@@ -180,7 +197,7 @@ export default function Page() {
     }).catch(() => undefined)
   }, [])
 
-  if (!authed) return <AuthScreen onEnter={() => setAuthed(true)} />
+  if (!authed) return <AuthScreen onAuthenticated={() => { setAuthed(true); window.location.reload() }} />
   const titles: Record<View, string> = { overview: 'Overview', recharge: 'Recharge wallet', activity: 'Activity', profile: 'Profile & settings', admin: 'Admin preview' }
   const signOut = async () => { await fetch('/api/auth/logout', { method: 'POST' }); setAuthed(false); setUser(null) }
   return <main className="app-shell"><div className={mobileOpen ? 'sidebar-wrap open' : 'sidebar-wrap'}><Sidebar view={view} setView={v => { setView(v); setMobileOpen(false) }} onSignOut={signOut} />{mobileOpen && <button className="drawer-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X /></button>}</div><div className="main-area"><Topbar title={titles[view]} onMenu={() => setMobileOpen(true)} /><div className="page-content">{view === 'overview' && <Overview setView={setView} balance={balance} userName={user?.name ?? 'Player'} />}{view === 'recharge' && <Recharge />}{view === 'activity' && <Activity />}{view === 'profile' && <Profile />}{view === 'admin' && <Admin />}</div></div></main>
