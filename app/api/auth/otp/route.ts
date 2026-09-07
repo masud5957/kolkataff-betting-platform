@@ -16,10 +16,10 @@ function normalizePhone(phone: string) {
   return ''
 }
 function hash(value: string) { return createHash('sha256').update(value).digest('hex') }
-function authHeaders() { return { authkey: process.env.MSG91_WIDGET_AUTH_TOKEN ?? '', 'Content-Type': 'application/json' } }
+function authHeaders() { return { 'Content-Type': 'application/json', Accept: 'application/json' } }
 
 async function msg91(path: string, body: Record<string, string>) {
-  const response = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ widgetId: process.env.MSG91_WIDGET_ID, ...body }), cache: 'no-store' })
+  const response = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ widgetId: process.env.MSG91_WIDGET_ID, tokenAuth: process.env.MSG91_WIDGET_AUTH_TOKEN, ...body }), cache: 'no-store' })
   const payload = await response.json().catch(() => null)
   if (!response.ok || payload?.type === 'error' || payload?.type === 'error_message') {
     throw new Error(typeof payload?.message === 'string' ? payload.message : 'MSG91 request failed')
@@ -57,7 +57,9 @@ export async function POST(request: Request) {
     await db.delete(otpChallenges).where(eq(otpChallenges.id, challenge[0].id))
     await createSession(user.id)
     return NextResponse.json({ ok: true, user: { id: user.id, phone: user.phone, name: user.name, role: user.role } })
-  } catch {
-    return NextResponse.json({ error: 'Unable to verify OTP. Please try again.' }, { status: 502 })
+  } catch (error) {
+    console.error('[v0] OTP request failed:', error instanceof Error ? error.message : error)
+    const message = error instanceof Error ? error.message : ''
+    return NextResponse.json({ error: message || 'Unable to verify OTP. Please try again.' }, { status: 502 })
   }
 }
