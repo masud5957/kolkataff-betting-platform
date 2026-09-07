@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
@@ -13,11 +14,15 @@ function normalizePhone(phone: string) {
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID()
   const body = await request.json().catch(() => null)
   const phone = typeof body?.phone === 'string' ? normalizePhone(body.phone) : ''
   const action = body?.action === 'verify' ? 'verify' : 'send'
-  if (!/^91\d{10}$/.test(phone)) return NextResponse.json({ error: 'Enter a valid Indian mobile number.' }, { status: 400 })
-  if (!process.env.MSG91_WIDGET_ID || !process.env.MSG91_WIDGET_AUTH_TOKEN || !process.env.MSG91_AUTH_KEY) return NextResponse.json({ error: 'OTP service is not configured.' }, { status: 503 })
+  console.info('[auth.otp]', { requestId, action, phoneSuffix: phone.slice(-4) })
+  if (!/^91\d{10}$/.test(phone)) { console.warn('[auth.otp.invalid_phone]', { requestId }); return NextResponse.json({ error: 'Enter a valid Indian mobile number.' }, { status: 400 }) }
+  const configReady = Boolean(process.env.MSG91_WIDGET_ID && process.env.MSG91_WIDGET_AUTH_TOKEN && process.env.MSG91_AUTH_KEY)
+  console.info('[auth.msg91.config]', { requestId, widgetIdPresent: Boolean(process.env.MSG91_WIDGET_ID), widgetTokenPresent: Boolean(process.env.MSG91_WIDGET_AUTH_TOKEN), authKeyPresent: Boolean(process.env.MSG91_AUTH_KEY) })
+  if (!configReady) return NextResponse.json({ error: 'OTP service is not configured.' }, { status: 503 })
   if (action === 'send') return NextResponse.json({ ok: true, message: 'Use the MSG91 widget to send OTP.' })
   if (typeof body?.widgetToken !== 'string' || body.widgetToken.length < 3) return NextResponse.json({ error: 'MSG91 did not confirm this OTP.' }, { status: 400 })
 
@@ -29,8 +34,9 @@ export async function POST(request: Request) {
       cache: 'no-store',
     })
     const tokenData = await tokenResponse.json().catch(() => null)
+    console.info('[auth.msg91.verify]', { requestId, status: tokenResponse.status, providerType: tokenData?.type ?? null, providerSuccess: tokenData?.success ?? null })
     if (!tokenResponse.ok || tokenData?.type === 'error' || tokenData?.success === false) {
-      return NextResponse.json({ error: 'MSG91 could not verify the widget token.' }, { status: 401 })
+      return NextResponse.json({ error: 'MSG91 could not verify the widget token.', requestId }, { status: 401 })
     }
 
     const existing = await db.select().from(users).where(eq(users.phone, phone)).limit(1)
@@ -38,9 +44,10 @@ export async function POST(request: Request) {
     await db.update(users).set({ phoneVerified: true, updatedAt: new Date() }).where(eq(users.id, user.id))
     await db.insert(wallets).values({ userId: user.id, balancePaise: 0 }).onConflictDoNothing({ target: wallets.userId })
     await createSession(user.id)
+    console.info('[auth.session.created]', { requestId, userId: user.id })
     return NextResponse.json({ ok: true, user: { id: user.id, phone: user.phone, name: user.name, role: user.role } })
   } catch (error) {
-    console.error('[v0] Session creation failed:', error instanceof Error ? error.message : error)
-    return NextResponse.json({ error: 'Unable to create your session. Please try again.' }, { status: 500 })
+    console.error('[auth.session.failed]', { requestId, error: error instanceof Error ? error.message : 'unknown' })
+    return NextResponse.json({ error: 'Unable to create your session. Please try again.', requestId }, { status: 500 })
   }
 }
