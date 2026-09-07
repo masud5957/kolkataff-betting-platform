@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const phone = typeof body?.phone === 'string' ? normalizePhone(body.phone) : ''
   const action = body?.action === 'verify' ? 'verify' : 'send'
   if (!/^91\d{10}$/.test(phone)) return NextResponse.json({ error: 'Enter a valid Indian mobile number.' }, { status: 400 })
-  if (!process.env.MSG91_WIDGET_ID || !process.env.MSG91_WIDGET_AUTH_TOKEN) return NextResponse.json({ error: 'OTP service is not configured.' }, { status: 503 })
+  if (!process.env.MSG91_WIDGET_ID || !process.env.MSG91_WIDGET_AUTH_TOKEN || !process.env.MSG91_AUTH_KEY) return NextResponse.json({ error: 'OTP service is not configured.' }, { status: 503 })
   if (action === 'send') return NextResponse.json({ ok: true, message: 'Use the MSG91 widget to send OTP.' })
   if (typeof body?.widgetToken !== 'string' || body.widgetToken.length < 3) return NextResponse.json({ error: 'MSG91 did not confirm this OTP.' }, { status: 400 })
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const tokenResponse = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ authkey: process.env.MSG91_WIDGET_AUTH_TOKEN, 'access-token': body.widgetToken }),
+      body: JSON.stringify({ authkey: process.env.MSG91_AUTH_KEY, 'access-token': body.widgetToken }),
       cache: 'no-store',
     })
     const tokenData = await tokenResponse.json().catch(() => null)
