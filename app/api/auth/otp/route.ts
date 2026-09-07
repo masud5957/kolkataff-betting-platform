@@ -8,7 +8,13 @@ import { otpChallenges, users, wallets } from '@/lib/db/schema'
 const MSG91_SEND_URL = 'https://control.msg91.com/api/v5/widget/sendOtp'
 const MSG91_VERIFY_URL = 'https://control.msg91.com/api/v5/widget/verifyOtp'
 
-function normalizePhone(phone: string) { return phone.replace(/\D/g, '').replace(/^0/, '91') }
+function normalizePhone(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  if (/^0\d{10}$/.test(digits)) return `91${digits.slice(1)}`
+  if (/^\d{10}$/.test(digits)) return `91${digits}`
+  if (/^91\d{10}$/.test(digits)) return digits
+  return ''
+}
 function hash(value: string) { return createHash('sha256').update(value).digest('hex') }
 function authHeaders() { return { authkey: process.env.MSG91_WIDGET_AUTH_TOKEN ?? '', 'Content-Type': 'application/json' } }
 
