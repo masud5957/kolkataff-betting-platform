@@ -22,6 +22,17 @@ export async function POST(request: Request) {
   if (typeof body?.widgetToken !== 'string' || body.widgetToken.length < 3) return NextResponse.json({ error: 'MSG91 did not confirm this OTP.' }, { status: 400 })
 
   try {
+    const tokenResponse = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authkey: process.env.MSG91_WIDGET_AUTH_TOKEN, 'access-token': body.widgetToken }),
+      cache: 'no-store',
+    })
+    const tokenData = await tokenResponse.json().catch(() => null)
+    if (!tokenResponse.ok || tokenData?.type === 'error' || tokenData?.success === false) {
+      return NextResponse.json({ error: 'MSG91 could not verify the widget token.' }, { status: 401 })
+    }
+
     const existing = await db.select().from(users).where(eq(users.phone, phone)).limit(1)
     const user = existing[0] ?? (await db.insert(users).values({ phone, name: `Player ${phone.slice(-4)}`, phoneVerified: true }).returning())[0]
     await db.update(users).set({ phoneVerified: true, updatedAt: new Date() }).where(eq(users.id, user.id))

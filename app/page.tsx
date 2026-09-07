@@ -98,7 +98,21 @@ function RealAuthScreen({ onVerified }: { onVerified: () => void }) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { fetch('/api/auth/widget-config').then(response => response.json()).then(config => window.initSendOTP?.({ widgetId: config.widgetId, tokenAuth: config.tokenAuth, exposeMethods: true })).catch(() => setError('Unable to load OTP service.')) }, [])
+  useEffect(() => {
+    let cancelled = false
+    const initialize = async () => {
+      try {
+        const config = await fetch('/api/auth/widget-config', { cache: 'no-store' }).then(response => response.json())
+        const deadline = Date.now() + 10000
+        while (!window.initSendOTP && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100))
+        if (!window.initSendOTP) throw new Error('MSG91 widget is unavailable. Disable ad blockers and refresh.')
+        window.initSendOTP({ widgetId: config.widgetId, tokenAuth: config.tokenAuth, exposeMethods: true })
+        if (!cancelled) setError('')
+      } catch (error) { if (!cancelled) setError(error instanceof Error ? error.message : 'Unable to load OTP service.') }
+    }
+    initialize()
+    return () => { cancelled = true }
+  }, [])
   const submit = async () => {
     setBusy(true); setError('')
     try {
