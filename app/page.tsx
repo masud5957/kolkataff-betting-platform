@@ -63,14 +63,15 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [verificationPending, setVerificationPending] = useState(false)
   const [busy, setBusy] = useState(false)
-  const submit = async () => {
+  const submit = async (action = mode) => {
     setBusy(true); setError(''); setMessage('')
     try {
-      const response = await fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: mode, name, email, password }) })
+      const response = await fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, name, email, password }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to continue')
-      if (mode === 'login') onAuthenticated(); else setMessage(result.message)
+      if (action === 'login') onAuthenticated(); else { setMessage(result.message); if (action === 'signup' || action === 'resend-verification') setVerificationPending(true) }
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to continue') } finally { setBusy(false) }
   }
   return (
@@ -96,7 +97,8 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
           {mode !== 'forgot' && <label>Password<div className="password-input"><input type={showPassword ? 'text' : 'password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} placeholder={mode === 'login' ? 'Enter your password' : 'At least 8 characters'} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>}
           {mode === 'login' && <div className="form-row"><label className="checkbox-label"><input type="checkbox" /> Remember me</label><button type="button" className="forgot" onClick={() => { setMode('forgot'); setError(''); setMessage('') }}>Forgot password?</button></div>}
           {error && <p role="alert" className="error-message">{error}</p>}{message && <p className="secure-note">{message}</p>}
-          <button className="primary-action" onClick={submit} disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : mode === 'signup' ? 'Create account' : 'Send reset link'} <ArrowUpRight size={18} /></button>
+          {verificationPending && <div className="verification-box"><strong>Check your inbox</strong><span>Open the verification link in the email to activate your account. Check spam if it is missing.</span><button type="button" className="forgot" onClick={() => submit('resend-verification')} disabled={busy}>Resend verification email</button></div>}
+          <button className="primary-action" onClick={() => submit()} disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : mode === 'signup' ? 'Send verification email' : 'Send reset link'} <ArrowUpRight size={18} /></button>
           {mode === 'forgot' && <button type="button" className="forgot" onClick={() => setMode('login')}>Back to sign in</button>}
           <div className="secure-note"><ShieldCheck size={16} /> Your information is encrypted and protected</div>
           <p className="fine-print">By continuing, you agree to our <u>Terms of Service</u> and <u>Responsible Play Policy</u>.</p>

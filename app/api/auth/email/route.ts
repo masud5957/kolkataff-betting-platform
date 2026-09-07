@@ -17,13 +17,25 @@ export async function POST(request: Request) {
   if (action === 'signup') {
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     if (name.length < 2 || password.length < 8) return response({ error: 'Enter your name and a password of at least 8 characters.' }, 400)
-    const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
-    if (existing[0]) return response({ error: 'An account with this email already exists.' }, 409)
-    const user = await db.insert(users).values({ email, phone: `email:${email}`, name, passwordHash: hashPassword(password) }).returning({ id: users.id })
+    const existing = await db.select({ id: users.id, emailVerified: users.emailVerified }).from(users).where(eq(users.email, email)).limit(1)
+    if (existing[0]?.emailVerified) return response({ error: 'An account with this email already exists. Sign in instead.' }, 409)
+    const user = existing[0]
+      ? await db.update(users).set({ name, passwordHash: hashPassword(password), updatedAt: new Date() }).where(eq(users.id, existing[0].id)).returning({ id: users.id })
+      : await db.insert(users).values({ email, phone: `email:${email}`, name, passwordHash: hashPassword(password) }).returning({ id: users.id })
+    await db.update(emailChallenges).set({ consumedAt: new Date() }).where(and(eq(emailChallenges.email, email), eq(emailChallenges.type, 'verify'), isNull(emailChallenges.consumedAt)))
     const rawToken = createToken()
     await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'verify', expiresAt: new Date(Date.now() + 30 * 60 * 1000) })
-    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl(request)}/api/auth/email/verify?token=${rawToken}`, `verify-email/${user[0].id}`)
-    return response({ ok: true, message: 'Check your email to verify your account.' }, 201)
+    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl(request)}/api/auth/email/verify?token=${rawToken}`, `verify-email/${user[0].id}-${hashToken(rawToken).slice(0, 12)}`)
+    return response({ ok: true, message: 'Verification email sent. Check your inbox and spam folder.' }, existing[0] ? 200 : 201)
+  }
+  if (action === 'resend-verification') {
+    const result = await db.select({ id: users.id, emailVerified: users.emailVerified }).from(users).where(eq(users.email, email)).limit(1)
+    if (!result[0] || result[0].emailVerified) return response({ ok: true, message: 'If the account needs verification, a new email has been sent.' })
+    await db.update(emailChallenges).set({ consumedAt: new Date() }).where(and(eq(emailChallenges.email, email), eq(emailChallenges.type, 'verify'), isNull(emailChallenges.consumedAt)))
+    const rawToken = createToken()
+    await db.insert(emailChallenges).values({ email, tokenHash: hashToken(rawToken), type: 'verify', expiresAt: new Date(Date.now() + 30 * 60 * 1000) })
+    await sendAuthEmail(email, 'Verify your KolkataFF account', 'Verify your email', 'Confirm your email address to activate your KolkataFF account.', `${appUrl(request)}/api/auth/email/verify?token=${rawToken}`, `verify-email-resend/${result[0].id}-${hashToken(rawToken).slice(0, 12)}`)
+    return response({ ok: true, message: 'A new verification email has been sent.' })
   }
   if (action === 'login') {
     const result = await db.select().from(users).where(eq(users.email, email)).limit(1)
