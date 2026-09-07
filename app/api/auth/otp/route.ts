@@ -1,19 +1,54 @@
 import { NextResponse } from 'next/server'
-import { createHash, randomInt } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
+import { and, eq, gt } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { otpChallenges } from '@/lib/db/schema'
+import { createSession } from '@/lib/auth'
+import { otpChallenges, users, wallets } from '@/lib/db/schema'
+
+const MSG91_SEND_URL = 'https://control.msg91.com/api/v5/widget/sendOtp'
+const MSG91_VERIFY_URL = 'https://control.msg91.com/api/v5/widget/verifyOtp'
 
 function normalizePhone(phone: string) { return phone.replace(/\D/g, '').replace(/^0/, '91') }
 function hash(value: string) { return createHash('sha256').update(value).digest('hex') }
+function authHeaders() { return { authkey: process.env.MSG91_WIDGET_AUTH_TOKEN ?? '', 'Content-Type': 'application/json' } }
+
+async function msg91(path: string, body: Record<string, string>) {
+  const response = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ widgetId: process.env.MSG91_WIDGET_ID, ...body }), cache: 'no-store' })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok || payload?.type === 'error') throw new Error('MSG91 request failed')
+  return payload as { reqId?: string; message?: string; type?: string }
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
+  const action = body?.action === 'verify' ? 'verify' : 'send'
   const phone = typeof body?.phone === 'string' ? normalizePhone(body.phone) : ''
-  const widgetToken = typeof body?.widgetToken === 'string' ? body.widgetToken : ''
-  if (!/^91\d{10}$/.test(phone) || !widgetToken) return NextResponse.json({ error: 'Phone and MSG91 widget verification are required.' }, { status: 400 })
-  const code = String(randomInt(100000, 999999))
-  await db.delete(otpChallenges).where(eq(otpChallenges.phone, phone))
-  await db.insert(otpChallenges).values({ phone, codeHash: hash(`${code}:${widgetToken}`), expiresAt: new Date(Date.now() + 5 * 60 * 1000) })
-  return NextResponse.json({ ok: true, message: 'Widget verification accepted. Complete OTP verification to continue.' })
+  if (!/^91\d{10}$/.test(phone)) return NextResponse.json({ error: 'Enter a valid Indian mobile number.' }, { status: 400 })
+  if (!process.env.MSG91_WIDGET_ID || !process.env.MSG91_WIDGET_AUTH_TOKEN) return NextResponse.json({ error: 'OTP service is not configured.' }, { status: 503 })
+
+  try {
+    if (action === 'send') {
+      const result = await msg91(MSG91_SEND_URL, { identifier: phone })
+      if (!result.reqId) throw new Error('Missing OTP request id')
+      await db.delete(otpChallenges).where(eq(otpChallenges.phone, phone))
+      await db.insert(otpChallenges).values({ phone, codeHash: hash(`${phone}:${result.reqId}`), expiresAt: new Date(Date.now() + 5 * 60 * 1000) })
+      return NextResponse.json({ ok: true, reqId: result.reqId })
+    }
+
+    const reqId = typeof body?.reqId === 'string' ? body.reqId : ''
+    const otp = typeof body?.otp === 'string' ? body.otp : ''
+    if (!reqId || !/^\d{4,8}$/.test(otp)) return NextResponse.json({ error: 'OTP and request id are required.' }, { status: 400 })
+    const challenge = await db.select().from(otpChallenges).where(and(eq(otpChallenges.phone, phone), eq(otpChallenges.codeHash, hash(`${phone}:${reqId}`)), gt(otpChallenges.expiresAt, new Date()))).limit(1)
+    if (!challenge[0]) return NextResponse.json({ error: 'OTP expired. Please request a new code.' }, { status: 400 })
+    await msg91(MSG91_VERIFY_URL, { reqId, otp })
+    const existing = await db.select().from(users).where(eq(users.phone, phone)).limit(1)
+    const user = existing[0] ?? (await db.insert(users).values({ phone, name: `Player ${phone.slice(-4)}`, phoneVerified: true }).returning())[0]
+    await db.update(users).set({ phoneVerified: true, updatedAt: new Date() }).where(eq(users.id, user.id))
+    await db.insert(wallets).values({ userId: user.id, balancePaise: 0 }).onConflictDoNothing({ target: wallets.userId })
+    await db.delete(otpChallenges).where(eq(otpChallenges.id, challenge[0].id))
+    await createSession(user.id)
+    return NextResponse.json({ ok: true, user: { id: user.id, phone: user.phone, name: user.name, role: user.role } })
+  } catch {
+    return NextResponse.json({ error: 'Unable to verify OTP. Please try again.' }, { status: 502 })
+  }
 }
