@@ -7,9 +7,6 @@ export async function GET() {
   const config = {
     databaseUrlPresent: Boolean(process.env.DATABASE_URL),
     betterAuthSecretPresent: Boolean(process.env.BETTER_AUTH_SECRET),
-    msg91WidgetIdPresent: Boolean(process.env.MSG91_WIDGET_ID),
-    msg91WidgetTokenPresent: Boolean(process.env.MSG91_WIDGET_AUTH_TOKEN),
-    msg91AuthKeyPresent: Boolean(process.env.MSG91_AUTH_KEY),
   }
   try {
     await db.execute(sql`select 1`)
