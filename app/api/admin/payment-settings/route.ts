@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth'
 import { paymentSettings } from '@/lib/db/schema'
+import { isAdminSessionValid } from '@/lib/admin-auth'
 
 async function requireAdmin() {
   const user = await getCurrentUser()
@@ -11,7 +12,7 @@ async function requireAdmin() {
 }
 
 export async function GET() {
-  if (!await requireAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!await isAdminSessionValid() && !await requireAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const settings = await db.select().from(paymentSettings).limit(1)
   return NextResponse.json({ settings: settings[0] ?? null })
 }

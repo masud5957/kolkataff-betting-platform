@@ -3,17 +3,18 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { auditLogs, rechargeRequests, walletLedger, wallets } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'
+import { isAdminSessionValid } from '@/lib/admin-auth'
 
 export async function GET() {
   const user = await getCurrentUser()
-  if (!user || user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!await isAdminSessionValid() && (!user || user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const rows = await db.select().from(rechargeRequests).where(eq(rechargeRequests.status, 'pending'))
   return NextResponse.json({ requests: rows })
 }
 
 export async function PATCH(request: Request) {
   const user = await getCurrentUser()
-  if (!user || user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!await isAdminSessionValid() && (!user || user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const body = await request.json().catch(() => null)
   const id = typeof body?.id === 'string' ? body.id : ''
   const status = body?.status === 'approved' || body?.status === 'rejected' ? body.status : ''
