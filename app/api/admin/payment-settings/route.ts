@@ -18,16 +18,18 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const sessionAdmin = await isAdminSessionValid()
   const user = await requireAdmin()
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!sessionAdmin && !user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid payment settings' }, { status: 400 })
   const values = {
     upiId: typeof body?.upiId === 'string' ? body.upiId.trim() : null,
     accountName: typeof body?.accountName === 'string' ? body.accountName.trim() : null,
     accountNumber: typeof body?.accountNumber === 'string' ? body.accountNumber.trim() : null,
     ifsc: typeof body?.ifsc === 'string' ? body.ifsc.trim().toUpperCase() : null,
     qrUrl: typeof body?.qrUrl === 'string' ? body.qrUrl.trim() : null,
-    updatedBy: user.id,
+    updatedBy: user?.id ?? null,
     updatedAt: new Date(),
   }
   const current = await db.select({ id: paymentSettings.id }).from(paymentSettings).limit(1)

@@ -8,6 +8,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState({ upiId: '', accountName: '', qrUrl: '' })
   const [withdrawals, setWithdrawals] = useState<Array<{ id: string; userId: string; amountPaise: number; method: string }>>([])
   const [message, setMessage] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [allowed, setAllowed] = useState<boolean | null>(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -27,8 +28,10 @@ export default function AdminPage() {
   }
   const reviewWithdrawal = async (id: string, status: 'approved' | 'rejected') => { const response = await fetch('/api/admin/withdrawals', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) }); if (response.ok) setWithdrawals(current => current.filter(item => item.id !== id)) }
   const save = async () => {
+    setMessage(''); setSaveError('')
     const response = await fetch('/api/admin/payment-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })
-    setMessage(response.ok ? 'Payment settings saved.' : 'Admin access required.')
+    if (response.ok) setMessage('Payment settings saved.')
+    else { const data = await response.json().catch(() => null); setSaveError(data?.error ?? 'Unable to save payment settings. Please sign in again.') }
   }
   if (allowed === null) return <main className="admin-page"><p className="subtle">Checking admin access…</p></main>
   const login = async (event: React.FormEvent) => { event.preventDefault(); setLoggingIn(true); setLoginError(''); const response = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); if (response.ok) { setAllowed(true); setPassword('') } else { setLoginError('Invalid admin username or password.') } setLoggingIn(false) }
