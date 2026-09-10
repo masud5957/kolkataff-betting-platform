@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, notLike } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { auditLogs, rechargeRequests, users, walletLedger, wallets } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'
@@ -8,7 +8,7 @@ import { isAdminSessionValid } from '@/lib/admin-auth'
 export async function GET() {
   const user = await getCurrentUser()
   if (!await isAdminSessionValid() && (!user || user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const rows = await db.select({ id: rechargeRequests.id, userId: rechargeRequests.userId, amountPaise: rechargeRequests.amountPaise, method: rechargeRequests.method, utr: rechargeRequests.utr, status: rechargeRequests.status, createdAt: rechargeRequests.createdAt, name: users.name, email: users.email, phone: users.phone }).from(rechargeRequests).leftJoin(users, eq(users.id, rechargeRequests.userId)).where(eq(rechargeRequests.status, 'pending'))
+  const rows = await db.select({ id: rechargeRequests.id, userId: rechargeRequests.userId, amountPaise: rechargeRequests.amountPaise, method: rechargeRequests.method, utr: rechargeRequests.utr, status: rechargeRequests.status, createdAt: rechargeRequests.createdAt, name: users.name, email: users.email, phone: users.phone }).from(rechargeRequests).leftJoin(users, eq(users.id, rechargeRequests.userId)).where(and(eq(rechargeRequests.status, 'pending'), notLike(rechargeRequests.method, 'withdrawal:%')))
   return NextResponse.json({ requests: rows })
 }
 
@@ -21,7 +21,7 @@ export async function PATCH(request: Request) {
   if (!id || !status) return NextResponse.json({ error: 'Invalid review request.' }, { status: 400 })
   try {
   const result = await db.transaction(async (tx) => {
-    const [row] = await tx.update(rechargeRequests).set({ status, reviewedBy: user?.id ?? null, reviewedAt: new Date() }).where(and(eq(rechargeRequests.id, id), eq(rechargeRequests.status, 'pending'))).returning()
+    const [row] = await tx.update(rechargeRequests).set({ status, reviewedBy: user?.id ?? null, reviewedAt: new Date() }).where(and(eq(rechargeRequests.id, id), eq(rechargeRequests.status, 'pending'), notLike(rechargeRequests.method, 'withdrawal:%'))).returning()
     if (!row) return null
     if (!Number.isSafeInteger(row.amountPaise) || row.amountPaise <= 0) throw new Error('Invalid recharge amount in database')
     if (status === 'rejected') {
