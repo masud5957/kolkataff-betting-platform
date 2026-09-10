@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { walletLedger, wallets } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'

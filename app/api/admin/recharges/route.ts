@@ -28,7 +28,7 @@ export async function PATCH(request: Request) {
       if (user) await tx.insert(auditLogs).values({ actorId: user.id, action: 'recharge.rejected', entityType: 'recharge_request', entityId: row.id })
       return { row, balancePaise: null }
     }
-    const [wallet] = await tx.insert(wallets).values({ userId: row.userId, balancePaise: 0 }).onConflictDoNothing({ target: wallets.userId }).returning({ id: wallets.id })
+    const [wallet] = await tx.insert(wallets).values({ userId: row.userId, balancePaise: 0 }).onConflictDoNothing({ target: wallets.userId }).returning({ id: wallets.id, balancePaise: wallets.balancePaise })
     const existing = wallet ?? (await tx.select({ id: wallets.id, balancePaise: wallets.balancePaise }).from(wallets).where(eq(wallets.userId, row.userId)).limit(1))[0]
     if (!existing) throw new Error('Wallet unavailable')
     if (!Number.isSafeInteger(existing.balancePaise) || existing.balancePaise < 0) throw new Error('Invalid wallet balance in database')
