@@ -14,7 +14,9 @@ export async function POST(request: Request) {
   const [pending] = await db.select({ id: rechargeRequests.id }).from(rechargeRequests).where(and(eq(rechargeRequests.userId, user.id), eq(rechargeRequests.status, 'pending'))).limit(1)
   if (pending) return NextResponse.json({ error: 'You already have a withdrawal pending review.' }, { status: 409 })
   const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, user.id)).limit(1)
-  if (!wallet || wallet.balancePaise < amount * 100) return NextResponse.json({ error: 'Insufficient wallet balance.' }, { status: 400 })
+  if (!wallet) return NextResponse.json({ error: 'Wallet not found.' }, { status: 404 })
+  if (wallet.balancePaise < 10000) return NextResponse.json({ error: 'A minimum wallet balance of ₹100 is required to withdraw.' }, { status: 400 })
+  if (amount * 100 > wallet.balancePaise) return NextResponse.json({ error: `Withdrawal cannot exceed your available balance of ₹${(wallet.balancePaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}.` }, { status: 400 })
   const [row] = await db.insert(rechargeRequests).values({ userId: user.id, amountPaise: amount * 100, method: `withdrawal:${upiId}`, utr: `WD-${crypto.randomUUID().slice(0, 12)}` }).returning()
   return NextResponse.json({ request: row }, { status: 201 })
 }
