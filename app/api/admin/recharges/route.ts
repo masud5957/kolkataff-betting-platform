@@ -20,10 +20,10 @@ export async function PATCH(request: Request) {
   const status = body?.status === 'approved' || body?.status === 'rejected' ? body.status : ''
   if (!id || !status) return NextResponse.json({ error: 'Invalid review request.' }, { status: 400 })
   const result = await db.transaction(async (tx) => {
-    const [row] = await tx.update(rechargeRequests).set({ status, reviewedBy: user.id, reviewedAt: new Date() }).where(and(eq(rechargeRequests.id, id), eq(rechargeRequests.status, 'pending'))).returning()
+    const [row] = await tx.update(rechargeRequests).set({ status, reviewedBy: user?.id ?? null, reviewedAt: new Date() }).where(and(eq(rechargeRequests.id, id), eq(rechargeRequests.status, 'pending'))).returning()
     if (!row) return null
     if (status === 'rejected') {
-      await tx.insert(auditLogs).values({ actorId: user.id, action: 'recharge.rejected', entityType: 'recharge_request', entityId: row.id })
+      if (user) await tx.insert(auditLogs).values({ actorId: user.id, action: 'recharge.rejected', entityType: 'recharge_request', entityId: row.id })
       return { row, balancePaise: null }
     }
     const [wallet] = await tx.insert(wallets).values({ userId: row.userId, balancePaise: 0 }).onConflictDoNothing({ target: wallets.userId }).returning({ id: wallets.id })
@@ -31,7 +31,7 @@ export async function PATCH(request: Request) {
     if (!existing) throw new Error('Wallet unavailable')
     const [updated] = await tx.update(wallets).set({ balancePaise: existing.balancePaise + row.amountPaise, updatedAt: new Date() }).where(eq(wallets.id, existing.id)).returning({ balancePaise: wallets.balancePaise })
     await tx.insert(walletLedger).values({ userId: row.userId, rechargeRequestId: row.id, amountPaise: row.amountPaise, balanceAfterPaise: updated.balancePaise, type: 'recharge_credit', note: 'Manual recharge approved' })
-    await tx.insert(auditLogs).values({ actorId: user.id, action: 'recharge.approved', entityType: 'recharge_request', entityId: row.id })
+    if (user) await tx.insert(auditLogs).values({ actorId: user.id, action: 'recharge.approved', entityType: 'recharge_request', entityId: row.id })
     return { row, balancePaise: updated.balancePaise }
   })
   if (!result) return NextResponse.json({ error: 'Request already reviewed or not found.' }, { status: 409 })
