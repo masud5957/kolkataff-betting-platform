@@ -14,14 +14,15 @@ export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
+  useEffect(() => { fetch('/api/admin/login').then(response => response.json()).then(data => setAllowed(data.authenticated)).catch(() => setAllowed(false)) }, [])
   useEffect(() => {
-    fetch('/api/admin/login').then(response => response.json()).then(data => setAllowed(data.authenticated)).catch(() => setAllowed(false))
+    if (!allowed) return
     Promise.all([fetch('/api/admin/recharges'), fetch('/api/admin/withdrawals'), fetch('/api/admin/payment-settings')]).then(async ([queue, withdrawalQueue, config]) => {
       if (queue.ok) setRequests((await queue.json()).requests ?? [])
       if (withdrawalQueue.ok) setWithdrawals((await withdrawalQueue.json()).requests ?? [])
       if (config.ok) { const data = await config.json(); if (data.settings) setSettings(data.settings) }
     })
-  }, [])
+  }, [allowed])
   const review = async (id: string, status: 'approved' | 'rejected') => {
     const response = await fetch('/api/admin/recharges', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) })
     if (response.ok) setRequests(current => current.filter(item => item.id !== id))

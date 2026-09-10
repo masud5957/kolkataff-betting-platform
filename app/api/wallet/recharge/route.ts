@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const utr = typeof body?.utr === 'string' ? body.utr.trim() : ''
   if (!Number.isInteger(amount) || amount < 100 || amount > 1000000 || !utr || utr.length > 64) return NextResponse.json({ error: 'Enter a valid amount and payment reference.' }, { status: 400 })
   try {
-    const [requestRow] = await db.insert(rechargeRequests).values({ userId: user.id, amountPaise: amount * 100, method, utr }).returning({ id: rechargeRequests.id, status: rechargeRequests.status })
+    const [requestRow] = await db.insert(rechargeRequests).values({ userId: user.id, amountPaise: amount * 100, method, utr }).returning()
     return NextResponse.json({ request: requestRow }, { status: 201 })
   } catch { return NextResponse.json({ error: 'This payment reference has already been submitted.' }, { status: 409 }) }
 }
