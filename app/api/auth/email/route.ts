@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       await db.insert(emailChallenges).values({ email, tokenHash: hashToken(code), type: 'password-reset-otp', expiresAt: new Date(Date.now() + 10 * 60 * 1000) })
       await sendAuthOtp(email, code, `password-reset-otp/${result[0].id}-${hashToken(code).slice(0, 12)}`)
     }
-    return response({ ok: true, message: 'If an account exists, a 6-digit password reset code has been sent.' })
+    return response({ ok: true, requiresOtp: true, message: 'If an account exists, a 6-digit password reset code has been sent.' })
   }
   if (action === 'reset') {
     const code = typeof body?.code === 'string' ? body.code.replace(/\D/g, '') : ''
