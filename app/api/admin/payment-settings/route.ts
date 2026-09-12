@@ -23,12 +23,22 @@ export async function PATCH(request: Request) {
   if (!sessionAdmin && !user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid payment settings' }, { status: 400 })
+  const qrUrl = typeof body?.qrUrl === 'string' ? body.qrUrl.trim() : ''
+  if (qrUrl) {
+    try {
+      const parsedQrUrl = new URL(qrUrl)
+      const isImgBbHost = parsedQrUrl.protocol === 'https:' && (parsedQrUrl.hostname === 'imgbb.com' || parsedQrUrl.hostname.endsWith('.imgbb.com') || parsedQrUrl.hostname.endsWith('.ibb.co'))
+      if (!isImgBbHost) return NextResponse.json({ error: 'QR URL must be a secure ImgBB image link.' }, { status: 400 })
+    } catch {
+      return NextResponse.json({ error: 'Enter a valid ImgBB QR image URL.' }, { status: 400 })
+    }
+  }
   const values = {
     upiId: typeof body?.upiId === 'string' ? body.upiId.trim() : null,
     accountName: typeof body?.accountName === 'string' ? body.accountName.trim() : null,
     accountNumber: typeof body?.accountNumber === 'string' ? body.accountNumber.trim() : null,
     ifsc: typeof body?.ifsc === 'string' ? body.ifsc.trim().toUpperCase() : null,
-    qrUrl: typeof body?.qrUrl === 'string' ? body.qrUrl.trim() : null,
+    qrUrl: qrUrl || null,
     updatedBy: user?.id ?? null,
     updatedAt: new Date(),
   }
