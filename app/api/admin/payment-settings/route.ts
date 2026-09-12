@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth'
 import { paymentSettings } from '@/lib/db/schema'
@@ -13,7 +13,7 @@ async function requireAdmin() {
 
 export async function GET() {
   if (!await isAdminSessionValid() && !await requireAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const settings = await db.select().from(paymentSettings).limit(1)
+  const settings = await db.select().from(paymentSettings).orderBy(desc(paymentSettings.updatedAt)).limit(1)
   return NextResponse.json({ settings: settings[0] ?? null }, {
     headers: { 'Cache-Control': 'no-store, max-age=0' },
   })
@@ -45,10 +45,11 @@ export async function PATCH(request: Request) {
     updatedAt: new Date(),
   }
   try {
-    const current = await db.select({ id: paymentSettings.id }).from(paymentSettings).limit(1)
-    const settings = current[0]
-      ? (await db.update(paymentSettings).set(values).where(eq(paymentSettings.id, current[0].id)).returning())[0]
-      : (await db.insert(paymentSettings).values(values).returning())[0]
+    const current = await db.select({ id: paymentSettings.id }).from(paymentSettings)
+    const updated = current.length
+      ? await Promise.all(current.map(row => db.update(paymentSettings).set(values).where(eq(paymentSettings.id, row.id)).returning()))
+      : []
+    const settings = updated[0]?.[0] ?? (await db.insert(paymentSettings).values(values).returning())[0]
     return NextResponse.json({ settings }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
   } catch (error) {
     console.error('[v0] Payment settings save failed:', error)

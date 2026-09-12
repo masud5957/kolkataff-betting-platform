@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { desc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { paymentSettings } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'
@@ -12,7 +13,7 @@ export async function GET() {
     ifsc: paymentSettings.ifsc,
     upiId: paymentSettings.upiId,
     qrUrl: paymentSettings.qrUrl,
-  }).from(paymentSettings).limit(1)
+  }).from(paymentSettings).orderBy(desc(paymentSettings.updatedAt)).limit(1)
   return NextResponse.json({ settings: settings ?? null }, {
     headers: { 'Cache-Control': 'no-store, max-age=0' },
   })
