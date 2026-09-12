@@ -16,10 +16,27 @@ export default function AdminPage() {
   useEffect(() => { fetch('/api/admin/login').then(response => response.json()).then(data => setAllowed(data.authenticated)).catch(() => setAllowed(false)) }, [])
   useEffect(() => {
     if (!allowed) return
-    Promise.all([fetch('/api/admin/recharges'), fetch('/api/admin/withdrawals')]).then(async ([queue, withdrawalQueue]) => {
-      if (queue.ok) setRequests((await queue.json()).requests ?? [])
-      if (withdrawalQueue.ok) setWithdrawals((await withdrawalQueue.json()).requests ?? [])
-    })
+    let active = true
+    const loadQueues = async () => {
+      try {
+        const [queue, withdrawalQueue] = await Promise.all([fetch('/api/admin/recharges', { cache: 'no-store' }), fetch('/api/admin/withdrawals', { cache: 'no-store' })])
+        const [depositData, withdrawalData] = await Promise.all([
+          queue.ok ? queue.json() : Promise.resolve({ requests: [] }),
+          withdrawalQueue.ok ? withdrawalQueue.json() : Promise.resolve({ requests: [] }),
+        ])
+        if (active) {
+          setRequests(Array.isArray(depositData.requests) ? depositData.requests : [])
+          setWithdrawals(Array.isArray(withdrawalData.requests) ? withdrawalData.requests : [])
+        }
+      } catch {
+        if (active) {
+          setRequests([])
+          setWithdrawals([])
+        }
+      }
+    }
+    void loadQueues()
+    return () => { active = false }
   }, [allowed])
   const review = async (id: string, status: 'approved' | 'rejected') => {
     const response = await fetch('/api/admin/recharges', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) })
@@ -27,7 +44,24 @@ export default function AdminPage() {
   }
   const reviewWithdrawal = async (id: string, status: 'approved' | 'rejected') => { const response = await fetch('/api/admin/withdrawals', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) }); if (response.ok) setWithdrawals(current => current.filter(item => item.id !== id)) }
   if (allowed === null) return <main className="admin-page"><p className="subtle">Checking admin access…</p></main>
-  const login = async (event: React.FormEvent) => { event.preventDefault(); setLoggingIn(true); setLoginError(''); const response = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); if (response.ok) { setAllowed(true); setPassword('') } else { setLoginError('Invalid admin username or password.') } setLoggingIn(false) }
+  const login = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setLoggingIn(true)
+    setLoginError('')
+    try {
+      const response = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
+      if (!response.ok) {
+        setLoginError(response.status >= 500 ? 'Admin login is temporarily unavailable. Please try again.' : 'Invalid admin username or password.')
+        return
+      }
+      setAllowed(true)
+      setPassword('')
+    } catch {
+      setLoginError('Unable to connect to the admin login service. Please try again.')
+    } finally {
+      setLoggingIn(false)
+    }
+  }
   if (!allowed) return <main className="admin-page"><div className="panel admin-login-card"><p className="muted-label">KOLKATAFF · ADMIN</p><h1>Control room login</h1><p className="subtle">Sign in with the admin credentials configured in Render environment variables.</p><form onSubmit={login}><label>Admin username<input value={username} onChange={event => setUsername(event.target.value)} autoComplete="username" required /></label><label>Admin password<input type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" required /></label>{loginError && <p role="alert" className="error-message">{loginError}</p>}<button className="primary-action" disabled={loggingIn}>{loggingIn ? 'Signing in…' : 'Sign in to admin panel'}</button></form></div></main>
   const filteredDeposits = requests.filter(item => `${item.name ?? ''} ${item.email ?? ''} ${item.phone ?? ''} ${item.userId} ${item.utr}`.toLowerCase().includes(depositSearch.toLowerCase().trim()))
   const filteredWithdrawals = withdrawals.filter(item => `${item.name ?? ''} ${item.email ?? ''} ${item.phone ?? ''} ${item.userId} ${item.method}`.toLowerCase().includes(withdrawalSearch.toLowerCase().trim()))
