@@ -30,15 +30,15 @@ export default function AdminPage() {
     if (response.ok) setRequests(current => current.filter(item => item.id !== id))
   }
   const reviewWithdrawal = async (id: string, status: 'approved' | 'rejected') => { const response = await fetch('/api/admin/withdrawals', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) }); if (response.ok) setWithdrawals(current => current.filter(item => item.id !== id)) }
-  const save = async () => {
-    setMessage(''); setSaveError('')
-    const response = await fetch('/api/admin/payment-settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) })
-    if (response.ok) {
-      const data = await response.json().catch(() => null)
-      if (data?.settings) setSettings(current => ({ ...current, ...data.settings }))
-      setMessage('Payment settings saved.')
-    }
-    else { const data = await response.json().catch(() => null); setSaveError(data?.error ?? 'Unable to save payment settings. Please sign in again.') }
+const save = async () => {
+  setMessage(''); setSaveError('')
+  try {
+  const response = await fetch('/api/admin/payment-settings', { method: 'PATCH', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(settings) })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) { setSaveError(data?.error ?? `Unable to save payment settings (HTTP ${response.status}).`); return }
+  if (data?.settings) setSettings(current => ({ ...current, ...data.settings }))
+  setMessage('Payment settings saved.')
+  } catch { setSaveError('Unable to reach the payment settings service. Please try again.') }
   }
   if (allowed === null) return <main className="admin-page"><p className="subtle">Checking admin access…</p></main>
   const login = async (event: React.FormEvent) => { event.preventDefault(); setLoggingIn(true); setLoginError(''); const response = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }); if (response.ok) { setAllowed(true); setPassword('') } else { setLoginError('Invalid admin username or password.') } setLoggingIn(false) }

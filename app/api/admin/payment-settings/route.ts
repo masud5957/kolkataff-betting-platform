@@ -44,9 +44,14 @@ export async function PATCH(request: Request) {
     updatedBy: user?.id ?? null,
     updatedAt: new Date(),
   }
-  const current = await db.select({ id: paymentSettings.id }).from(paymentSettings).limit(1)
-  const settings = current[0]
-    ? (await db.update(paymentSettings).set(values).where(eq(paymentSettings.id, current[0].id)).returning())[0]
-    : (await db.insert(paymentSettings).values(values).returning())[0]
-  return NextResponse.json({ settings })
+  try {
+    const current = await db.select({ id: paymentSettings.id }).from(paymentSettings).limit(1)
+    const settings = current[0]
+      ? (await db.update(paymentSettings).set(values).where(eq(paymentSettings.id, current[0].id)).returning())[0]
+      : (await db.insert(paymentSettings).values(values).returning())[0]
+    return NextResponse.json({ settings }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+  } catch (error) {
+    console.error('[v0] Payment settings save failed:', error)
+    return NextResponse.json({ error: 'Payment settings could not be saved to the database.' }, { status: 500 })
+  }
 }
