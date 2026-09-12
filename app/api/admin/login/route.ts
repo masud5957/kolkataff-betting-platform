@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const password = typeof body?.password === 'string' ? body.password : ''
   if (!verifyAdminCredentials(username, password)) return NextResponse.json({ error: 'Invalid admin username or password.' }, { status: 401 })
   const response = NextResponse.json({ authenticated: true })
-  response.cookies.set(ADMIN_COOKIE, createAdminSession(username), { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: SESSION_TTL })
+  response.cookies.set(ADMIN_COOKIE, createAdminSession(username), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: SESSION_TTL })
   return response
 }
 
