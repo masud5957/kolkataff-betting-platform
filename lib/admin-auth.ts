@@ -13,13 +13,25 @@ const safeEqual = (left: string, right: string) => {
 
 export const verifyAdminCredentials = (username: string, password: string) => Boolean(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD && safeEqual(username, process.env.ADMIN_USERNAME) && safeEqual(password, process.env.ADMIN_PASSWORD))
 
-export const createAdminSession = (username: string) => `${username}.${digest(`${username}:${process.env.ADMIN_PASSWORD}:${new Date().toISOString().slice(0, 13)}`)}`
+const encodeUsername = (username: string) => Buffer.from(username, 'utf8').toString('base64url')
+const decodeUsername = (value: string) => Buffer.from(value, 'base64url').toString('utf8')
+
+export const createAdminSession = (username: string) => `${encodeUsername(username)}.${digest(`${username}:${process.env.ADMIN_PASSWORD}:${new Date().toISOString().slice(0, 13)}`)}`
 
 export async function isAdminSessionValid() {
   const value = (await cookies()).get(ADMIN_COOKIE)?.value
   if (!value) return false
-  const [username, signature] = value.split('.')
-  if (!username || !signature || !process.env.ADMIN_PASSWORD || username !== process.env.ADMIN_USERNAME) return false
+  const separator = value.lastIndexOf('.')
+  if (separator <= 0 || !process.env.ADMIN_PASSWORD) return false
+  const encodedUsername = value.slice(0, separator)
+  const signature = value.slice(separator + 1)
+  let username = ''
+  try {
+    username = decodeUsername(encodedUsername)
+  } catch {
+    return false
+  }
+  if (!signature || username !== process.env.ADMIN_USERNAME) return false
   return safeEqual(signature, digest(`${username}:${process.env.ADMIN_PASSWORD}:${new Date().toISOString().slice(0, 13)}`)) || safeEqual(signature, digest(`${username}:${process.env.ADMIN_PASSWORD}:${new Date(Date.now() - 60 * 60 * 1000).toISOString().slice(0, 13)}`))
 }
 

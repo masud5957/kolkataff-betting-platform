@@ -17,6 +17,6 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   const response = NextResponse.json({ authenticated: false })
-  response.cookies.set(ADMIN_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 })
+  response.cookies.set(ADMIN_COOKIE, '', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 0 })
   return response
 }
