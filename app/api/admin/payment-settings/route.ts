@@ -23,6 +23,17 @@ export async function PATCH(request: Request) {
   if (!sessionAdmin && !user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid payment settings' }, { status: 400 })
+  const qrUrl = typeof body?.qrUrl === 'string' ? body.qrUrl.trim() : ''
+  if (qrUrl) {
+    try {
+      const parsedQrUrl = new URL(qrUrl)
+      if (parsedQrUrl.protocol !== 'https:' || !['i.ibb.co', 'ibb.co', 'www.ibb.co'].includes(parsedQrUrl.hostname.toLowerCase())) {
+        return NextResponse.json({ error: 'QR code URL must be a secure ImgBB URL.' }, { status: 400 })
+      }
+    } catch {
+      return NextResponse.json({ error: 'Enter a valid ImgBB QR image URL.' }, { status: 400 })
+    }
+  }
   const values = {
     upiId: typeof body?.upiId === 'string' ? body.upiId.trim() : null,
     accountName: typeof body?.accountName === 'string' ? body.accountName.trim() : null,
