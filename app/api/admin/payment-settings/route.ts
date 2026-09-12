@@ -14,7 +14,9 @@ async function requireAdmin() {
 export async function GET() {
   if (!await isAdminSessionValid() && !await requireAdmin()) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   const settings = await db.select().from(paymentSettings).limit(1)
-  return NextResponse.json({ settings: settings[0] ?? null })
+  return NextResponse.json({ settings: settings[0] ?? null }, {
+    headers: { 'Cache-Control': 'no-store, max-age=0' },
+  })
 }
 
 export async function PATCH(request: Request) {
@@ -36,8 +38,8 @@ export async function PATCH(request: Request) {
   const values = {
     upiId: typeof body?.upiId === 'string' ? body.upiId.trim() : null,
     accountName: typeof body?.accountName === 'string' ? body.accountName.trim() : null,
-    accountNumber: typeof body?.accountNumber === 'string' ? body.accountNumber.trim() : null,
-    ifsc: typeof body?.ifsc === 'string' ? body.ifsc.trim().toUpperCase() : null,
+    ...(typeof body?.accountNumber === 'string' ? { accountNumber: body.accountNumber.trim() } : {}),
+    ...(typeof body?.ifsc === 'string' ? { ifsc: body.ifsc.trim().toUpperCase() } : {}),
     qrUrl: qrUrl || null,
     updatedBy: user?.id ?? null,
     updatedAt: new Date(),

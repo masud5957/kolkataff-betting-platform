@@ -13,5 +13,7 @@ export async function GET() {
     upiId: paymentSettings.upiId,
     qrUrl: paymentSettings.qrUrl,
   }).from(paymentSettings).limit(1)
-  return NextResponse.json({ settings: settings ?? null })
+  return NextResponse.json({ settings: settings ?? null }, {
+    headers: { 'Cache-Control': 'no-store, max-age=0' },
+  })
 }
