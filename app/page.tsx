@@ -153,6 +153,19 @@ export default function Page() {
   const [transactions, setTransactions] = useState<Array<{ id: string; amountPaise: number; note: string; createdAt: string }>>([])
 
   useEffect(() => {
+    const initialView = window.history.state?.view as View | undefined
+    if (initialView && navItems.some(item => item.view === initialView)) setView(initialView)
+    else window.history.replaceState({ ...(window.history.state ?? {}), view: 'overview' }, '', window.location.href)
+    const handlePopState = (event: PopStateEvent) => {
+      const nextView = event.state?.view as View | undefined
+      setView(nextView && navItems.some(item => item.view === nextView) ? nextView : 'overview')
+      setMobileOpen(false)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
     Promise.all([fetch('/api/me'), fetch('/api/wallet')]).then(async ([userResponse, walletResponse]) => {
       if (!userResponse.ok) return
       const userData = await userResponse.json()
@@ -166,6 +179,12 @@ export default function Page() {
 
   if (!authed) return <AuthScreen onAuthenticated={() => { setAuthed(true); window.location.reload() }} />
   const titles: Record<View, string> = { overview: 'Overview', recharge: 'Recharge wallet', withdraw: 'Withdraw funds', activity: 'Activity', profile: 'Profile & settings', about: 'About KolkataFF' }
+  const navigateTo = (nextView: View) => {
+    if (nextView === view) { setMobileOpen(false); return }
+    window.history.pushState({ view: nextView }, '', window.location.href)
+    setView(nextView)
+    setMobileOpen(false)
+  }
   const signOut = async () => { await fetch('/api/auth/logout', { method: 'POST' }); setAuthed(false); setUser(null) }
-  return <main className="app-shell"><div className={mobileOpen ? 'sidebar-wrap open' : 'sidebar-wrap'}><Sidebar view={view} setView={v => { setView(v); setMobileOpen(false) }} onSignOut={signOut} userName={user?.name ?? 'Player'} />{mobileOpen && <button className="drawer-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X /></button>}</div><div className="main-area"><Topbar title={titles[view]} onMenu={() => setMobileOpen(true)} userName={user?.name ?? 'Player'} /><div className="page-content">{view === 'overview' && <Overview setView={setView} balance={balance} userName={user?.name ?? 'Player'} transactions={transactions} />}{view === 'recharge' && <Recharge />}{view === 'withdraw' && <Withdraw balance={balance} />}{view === 'activity' && <Activity />}{view === 'profile' && <Profile />}{view === 'about' && <About />}</div></div></main>
+  return <main className="app-shell"><div className={mobileOpen ? 'sidebar-wrap open' : 'sidebar-wrap'}><Sidebar view={view} setView={navigateTo} onSignOut={signOut} userName={user?.name ?? 'Player'} />{mobileOpen && <button className="drawer-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X /></button>}</div><div className="main-area"><Topbar title={titles[view]} onMenu={() => setMobileOpen(true)} userName={user?.name ?? 'Player'} /><div className="page-content">{view === 'overview' && <Overview setView={navigateTo} balance={balance} userName={user?.name ?? 'Player'} transactions={transactions} />}{view === 'recharge' && <Recharge />}{view === 'withdraw' && <Withdraw balance={balance} />}{view === 'activity' && <Activity />}{view === 'profile' && <Profile />}{view === 'about' && <About />}</div></div></main>
 }
