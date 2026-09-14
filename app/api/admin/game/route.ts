@@ -2,14 +2,12 @@ import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { gameBets, gameRounds, walletLedger, wallets } from '@/lib/db/schema'
-import { getCurrentUser } from '@/lib/auth'
+import { isAdminSessionValid } from '@/lib/admin-auth'
 import { ensureGameTables } from '@/lib/db/ensure-game'
 
 async function requireAdmin() {
   await ensureGameTables()
-  const user = await getCurrentUser()
-  if (!user || user.role !== 'admin') return null
-  return user
+  return (await isAdminSessionValid()) ? { id: '00000000-0000-0000-0000-000000000000' } : null
 }
 
 export async function GET() {
