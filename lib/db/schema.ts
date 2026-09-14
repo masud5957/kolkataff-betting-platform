@@ -83,6 +83,30 @@ export const paymentSettings = pgTable('payment_settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
+export const gameRounds = pgTable('game_rounds', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  roundDate: text('round_date').notNull(),
+  roundNumber: integer('round_number').notNull(),
+  status: text('status').notNull().default('open'),
+  singleResult: text('single_result'),
+  pattiResult: text('patti_result'),
+  createdBy: uuid('created_by').notNull(),
+  declaredAt: timestamp('declared_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({ roundIdx: uniqueIndex('game_rounds_date_number_idx').on(table.roundDate, table.roundNumber) }))
+
+export const gameBets = pgTable('game_bets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  roundId: uuid('round_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  betType: text('bet_type').notNull(),
+  selection: text('selection').notNull(),
+  stakePaise: integer('stake_paise').notNull(),
+  payoutPaise: integer('payout_paise').notNull().default(0),
+  status: text('status').notNull().default('pending'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
   actorId: uuid('actor_id').notNull(),
@@ -93,7 +117,7 @@ export const auditLogs = pgTable('audit_logs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
-export const schema = { users, emailChallenges, otpChallenges, sessions, wallets, rechargeRequests, walletLedger, paymentSettings, auditLogs }
+export const schema = { users, emailChallenges, otpChallenges, sessions, wallets, rechargeRequests, walletLedger, paymentSettings, gameRounds, gameBets, auditLogs }
 export type User = typeof users.$inferSelect
 export type RechargeRequest = typeof rechargeRequests.$inferSelect
 export type Wallet = typeof wallets.$inferSelect
