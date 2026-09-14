@@ -4,11 +4,13 @@ import { db } from '@/lib/db'
 import { emailChallenges, users } from '@/lib/db/schema'
 import { createSession } from '@/lib/auth'
 import { createOtp, hashPassword, hashToken, normalizeEmail, sendAuthOtp, verifyPassword } from '@/lib/email-auth'
+import { ensureDatabase } from '@/lib/db/bootstrap'
 
 const appUrl = (request: Request) => process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
 const response = (body: unknown, status = 200) => NextResponse.json(body, { status })
 
 export async function POST(request: Request) {
+  await ensureDatabase()
   const body = await request.json().catch(() => null)
   const action = body?.action
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
