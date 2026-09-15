@@ -53,7 +53,8 @@ label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 17px; co
 .admin-game-date { min-width: 150px; margin: 0; }
 .admin-game-date input { margin-top: 5px; min-height: 38px; }
 .game-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 18px; }
-.game-card, .results-card { min-width: 0; }
+.game-card { min-width: 0; }
+.results-card { display: none; }
 .game-card select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); }
 .bet-type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 18px; }
 .bet-type-toggle button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--foreground); font-weight: 700; }
