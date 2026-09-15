@@ -5,7 +5,7 @@ import { gameRounds } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'
 import { ensureGameTables } from '@/lib/db/ensure-game'
 
-export async function GET() {
+export async function GET(request: Request) {
   await ensureGameTables()
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
