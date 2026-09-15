@@ -10,10 +10,11 @@ async function requireAdmin() {
   return (await isAdminSessionValid()) ? { id: '00000000-0000-0000-0000-000000000000' } : null
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+  const requestedDate = new URL(request.url).searchParams.get('date')
+  const date = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
   const rounds = await db.select().from(gameRounds).where(eq(gameRounds.roundDate, date)).orderBy(gameRounds.roundNumber)
   return NextResponse.json({ rounds }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
 }
@@ -21,7 +22,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+  const body = await request.json().catch(() => null)
+  const requestedDate = typeof body?.date === 'string' ? body.date : ''
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
   const existing = await db.select({ roundNumber: gameRounds.roundNumber }).from(gameRounds).where(eq(gameRounds.roundDate, date))
   const present = new Set(existing.map(row => row.roundNumber))
   const rows = Array.from({ length: 8 }, (_, index) => index + 1).filter(roundNumber => !present.has(roundNumber)).map(roundNumber => ({ roundDate: date, roundNumber, createdBy: user.id }))

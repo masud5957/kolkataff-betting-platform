@@ -8,6 +8,14 @@ import { ensureGameTables } from '@/lib/db/ensure-game'
 const MIN_STAKE = 500
 const MAX_STAKE = 10000
 
+export async function GET() {
+  await ensureGameTables()
+  const user = await getCurrentUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const bets = await db.select({ id: gameBets.id, roundId: gameBets.roundId, betType: gameBets.betType, selection: gameBets.selection, stakePaise: gameBets.stakePaise, payoutPaise: gameBets.payoutPaise, status: gameBets.status, createdAt: gameBets.createdAt, roundNumber: gameRounds.roundNumber, roundDate: gameRounds.roundDate }).from(gameBets).innerJoin(gameRounds, eq(gameBets.roundId, gameRounds.id)).where(eq(gameBets.userId, user.id)).orderBy(desc(gameBets.createdAt)).limit(100)
+  return NextResponse.json({ bets }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+}
+
 export async function POST(request: Request) {
   await ensureGameTables()
   const user = await getCurrentUser()
