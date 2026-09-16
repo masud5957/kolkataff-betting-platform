@@ -5,7 +5,7 @@ import { gameBets, gameRounds, walletLedger, wallets } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'
 import { ensureGameTables } from '@/lib/db/ensure-game'
 
-const MIN_STAKE = 500
+const MIN_STAKE = 10
 const MAX_STAKE = 10000
 
 export async function GET() {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const betType = body?.betType === 'patti' ? 'patti' : body?.betType === 'single' ? 'single' : ''
   const selection = typeof body?.selection === 'string' ? body.selection.trim() : ''
   const stake = Number(body?.stake)
-  if (!roundId || !betType || !Number.isInteger(stake) || stake < MIN_STAKE || stake > MAX_STAKE) return NextResponse.json({ error: 'Stake must be between ₹500 and ₹10,000.' }, { status: 400 })
+  if (!roundId || !betType || !Number.isInteger(stake) || stake < MIN_STAKE || stake > MAX_STAKE) return NextResponse.json({ error: 'Stake must be between ₹10 and ₹10,000.' }, { status: 400 })
   if ((betType === 'single' && !/^\d$/.test(selection)) || (betType === 'patti' && !/^\d{3}$/.test(selection))) return NextResponse.json({ error: 'Enter a valid single or three-digit patti.' }, { status: 400 })
   try {
     const result = await db.transaction(async (tx) => {

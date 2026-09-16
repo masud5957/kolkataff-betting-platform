@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const ifscCode = typeof body?.ifscCode === 'string' ? body.ifscCode.trim().toUpperCase() : ''
   const hasUpi = /^[a-z0-9._-]+@[a-z0-9.-]+$/.test(upiId)
   const hasBank = accountName.length >= 2 && accountName.length <= 120 && /^\d{6,30}$/.test(accountNumber) && /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)
-  if (!Number.isInteger(amount) || amount < 100 || amount > 1000000 || (!hasUpi && !hasBank)) return NextResponse.json({ error: 'Enter a valid amount and either a UPI ID or complete bank details.' }, { status: 400 })
+  if (!Number.isInteger(amount) || amount < 300 || amount > 1000000 || (!hasUpi && !hasBank)) return NextResponse.json({ error: 'Enter a valid amount and either a UPI ID or complete bank details.' }, { status: 400 })
   const [daily] = await db.select({ count: sql<number>`count(*)` }).from(rechargeRequests).where(and(eq(rechargeRequests.userId, user.id), eq(rechargeRequests.method, 'withdrawal'), sql`(${rechargeRequests.createdAt} AT TIME ZONE 'Asia/Kolkata')::date = (now() AT TIME ZONE 'Asia/Kolkata')::date`))
   if (Number(daily?.count ?? 0) >= 3) return NextResponse.json({ error: 'You can submit a maximum of 3 withdrawals per day.' }, { status: 429 })
   const result = await db.transaction(async (tx) => {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     return row
   }).catch((error: unknown) => { const message = error instanceof Error ? error.message : ''; if (message === 'WALLET_NOT_FOUND') return null; if (message === 'MINIMUM_BALANCE') return 'minimum'; if (message.startsWith('INSUFFICIENT:')) return `insufficient:${message.split(':')[1]}`; throw error })
   if (result === null) return NextResponse.json({ error: 'Wallet not found.' }, { status: 404 })
-  if (result === 'minimum') return NextResponse.json({ error: 'A minimum wallet balance of ₹100 is required to withdraw.' }, { status: 400 })
+  if (result === 'minimum') return NextResponse.json({ error: 'A minimum withdrawal amount of ₹300 is required.' }, { status: 400 })
   if (typeof result === 'string' && result.startsWith('insufficient:')) return NextResponse.json({ error: `Withdrawal cannot exceed your available balance of ₹${(Number(result.split(':')[1]) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}.` }, { status: 400 })
   return NextResponse.json({ request: result }, { status: 201 })
 }
