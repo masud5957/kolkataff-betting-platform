@@ -46,7 +46,25 @@ label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 17px; co
 .play-here-toggle:focus-visible { outline: 3px solid #a7d1b6; outline-offset: 3px; }
 .game-page > .results-board-wrap { order: 2; margin: 0; }
 .results-board-wrap { overflow: hidden; }
-.results-board-wrap .my-bets-board { order: -1; margin: 0 0 18px; border: 1px solid #cfe3d6; background: linear-gradient(135deg, #ffffff 0%, #f1faf4 100%); box-shadow: 0 10px 24px rgba(18, 101, 77, .08); }
+.results-board-wrap .my-bets-board { order: -1; margin: 0 0 18px; padding: 0; overflow: hidden; border: 1px solid #cfe3d6; background: linear-gradient(135deg, #ffffff 0%, #f1faf4 100%); box-shadow: 0 10px 24px rgba(18, 101, 77, .08); }
+.my-bets-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 17px 13px; border-bottom: 1px solid #dfece4; }
+.my-bets-heading h3 { margin-top: 4px; font-size: 19px; }
+.bet-count-badge { padding: 6px 9px; border-radius: 999px; color: #15644e; background: #dff1e5; font-size: 10px; font-weight: 800; }
+.my-bets-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.my-bet-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 78px; padding: 12px 14px; border-right: 1px solid #dfece4; border-bottom: 1px solid #dfece4; color: var(--muted-foreground); font-size: 11px; }
+.my-bet-main, .my-bet-meta { display: flex; flex-direction: column; gap: 4px; }
+.my-bet-main strong { color: var(--foreground); font-size: 20px; line-height: 1; letter-spacing: .02em; }
+.my-bet-main small, .my-bet-round { color: var(--muted-foreground); font-size: 10px; }
+.my-bet-meta { align-items: flex-end; text-align: right; }
+.my-bet-meta > strong { color: var(--foreground); font-size: 14px; }
+.bet-status { display: inline-flex; padding: 4px 7px; border-radius: 999px; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.bet-status-pending { color: #8a5b00; background: #fff1c2; }
+.bet-status-declared { color: #245d8e; background: #dceeff; }
+.bet-status-lost { color: #a53c3c; background: #ffe1e1; }
+.bet-status-win { color: #16724f; background: #d8f3e3; }
+.my-bet-meta small { color: #16724f; font-size: 10px; font-weight: 800; }
+.my-bets-empty { display: flex; flex-direction: column; gap: 4px; padding: 18px 17px; color: var(--muted-foreground); font-size: 11px; }
+.my-bets-empty strong { color: var(--foreground); font-size: 13px; }
 .live-result-banner { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; border-radius: 10px 10px 0 0; color: #fff; background: #e2483d; font-size: 11px; font-weight: 900; letter-spacing: .04em; }
 .live-result-banner strong { font-weight: 700; }
 .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #ffe35b; box-shadow: 0 0 0 3px #ffffff33; }
@@ -59,14 +77,8 @@ label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 17px; co
 .refresh-results { display: block; width: min(100%, 280px); min-height: 48px; margin: 16px auto 22px; border: 2px solid #181818; border-radius: 28px; color: #181818; background: #ffe05a; font-weight: 900; }
 .old-results-heading { margin: 0; padding: 10px; color: #ffe05a; background: #111; font-size: 26px; text-align: center; }
 .old-board { margin-top: 10px; }
-.my-bets-board { margin-top: 16px; padding: 17px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: var(--shadow-soft); }
-.my-bets-board .panel-heading { align-items: center; margin-bottom: 10px; }
-.my-bets-board .panel-heading h3 { margin-top: 4px; font-size: 19px; }
-.my-bet-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid #dfece4; color: var(--muted-foreground); font-size: 11px; }
-.my-bet-row > span:first-child { display: flex; align-items: center; gap: 5px; }
-.my-bet-row > span:last-child { text-align: right; }
+.my-bets-board { border-radius: 12px; }
 .my-bet-row:last-child { border-bottom: 0; }
-.my-bet-row strong { color: var(--foreground); font-size: 15px; }
 .admin-game-date { min-width: 150px; margin: 0; }
 .admin-game-date input { margin-top: 5px; min-height: 38px; }
 .game-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 18px; }
@@ -93,6 +105,11 @@ label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 17px; co
   body { overflow-x: hidden; }
   .auth-form-wrap { padding: 20px 16px; border-radius: 14px; box-shadow: none; }
   .result-grid { grid-template-columns: repeat(8, 58px); overflow-x: auto; }
+  .my-bets-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .my-bet-row { min-height: 74px; padding: 11px 10px; }
+  .my-bet-main strong { font-size: 18px; }
+  .my-bet-meta > strong { font-size: 13px; }
+  .bet-status { font-size: 8px; padding: 4px 5px; }
   .result-date-bar { font-size: 16px; }
   .result-cell { min-height: 72px; }
   .result-cell strong { font-size: 18px; }
