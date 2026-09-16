@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { rechargeRequests, users } from '@/lib/db/schema'
 import { getCurrentUser } from '@/lib/auth'
@@ -9,6 +9,10 @@ import { isAdminSessionValid } from '@/lib/admin-auth'
 export async function GET() {
   const actor = await getCurrentUser()
   if (!await isAdminSessionValid() && actor?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  await db.execute(sql`alter table recharge_requests add column if not exists upi_id text`)
+  await db.execute(sql`alter table recharge_requests add column if not exists account_name text`)
+  await db.execute(sql`alter table recharge_requests add column if not exists account_number text`)
+  await db.execute(sql`alter table recharge_requests add column if not exists ifsc_code text`)
   const rows = await db.select({ id: rechargeRequests.id, createdAt: rechargeRequests.createdAt, amountPaise: rechargeRequests.amountPaise, status: rechargeRequests.status, upiId: rechargeRequests.upiId, accountName: rechargeRequests.accountName, accountNumber: rechargeRequests.accountNumber, ifscCode: rechargeRequests.ifscCode, utr: rechargeRequests.utr, userId: rechargeRequests.userId, userName: users.name, email: users.email, phone: users.phone }).from(rechargeRequests).leftJoin(users, eq(users.id, rechargeRequests.userId)).where(eq(rechargeRequests.method, 'withdrawal')).orderBy(desc(rechargeRequests.createdAt))
   const sheet = XLSX.utils.json_to_sheet(rows.map(row => ({
     'Request ID': row.id,
