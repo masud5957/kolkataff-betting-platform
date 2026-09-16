@@ -58,8 +58,7 @@ label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 17px; co
 .my-bet-meta { align-items: flex-end; text-align: right; }
 .my-bet-meta > strong { color: var(--foreground); font-size: 14px; }
 .bet-status { display: inline-flex; padding: 4px 7px; border-radius: 999px; font-size: 9px; font-weight: 800; white-space: nowrap; }
-.bet-status-pending { color: #8a5b00; background: #fff1c2; }
-.bet-status-declared { color: #245d8e; background: #dceeff; }
+.bet-status-awaited { color: #8a5b00; background: #fff1c2; }
 .bet-status-lost { color: #a53c3c; background: #ffe1e1; }
 .bet-status-win { color: #16724f; background: #d8f3e3; }
 .my-bet-meta small { color: #16724f; font-size: 10px; font-weight: 800; }
