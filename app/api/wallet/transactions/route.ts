@@ -12,8 +12,8 @@ export async function GET() {
     db.select().from(walletLedger).where(eq(walletLedger.userId, user.id)).orderBy(desc(walletLedger.createdAt)).limit(100),
   ])
   const items = [
-    ...requests.map(request => ({ id: request.id, kind: (request.method === 'withdrawal' || request.method.startsWith('withdrawal:')) ? 'withdrawal' : 'recharge', amountPaise: request.amountPaise, reference: request.utr, status: request.status, createdAt: request.createdAt })),
-    ...ledger.map(entry => ({ id: entry.id, kind: entry.type.startsWith('withdrawal') ? 'withdrawal' : 'recharge', amountPaise: entry.amountPaise, reference: entry.note, status: 'completed', createdAt: entry.createdAt })),
+    ...requests.map(request => { const isWithdrawal = request.method === 'withdrawal' || request.method.startsWith('withdrawal:'); return { id: request.id, kind: isWithdrawal ? 'withdrawal' : 'recharge', amountPaise: isWithdrawal ? -Math.abs(request.amountPaise) : Math.abs(request.amountPaise), reference: request.utr, status: request.status, createdAt: request.createdAt } }),
+    ...ledger.map(entry => { const isWithdrawal = entry.type.startsWith('withdrawal'); return { id: entry.id, kind: isWithdrawal ? 'withdrawal' : 'recharge', amountPaise: isWithdrawal ? -Math.abs(entry.amountPaise) : Math.abs(entry.amountPaise), reference: entry.note, status: 'completed', createdAt: entry.createdAt } }),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100)
   return NextResponse.json({ items })
 }
