@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       if (!round) throw new Error('Round is closed or unavailable.')
       const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, user.id)).limit(1)
       if (!wallet || wallet.balancePaise < stake * 100) throw new Error('Insufficient wallet balance.')
-      const [bet] = await tx.insert(gameBets).values({ roundId, userId: user.id, betType, selection, stakePaise: stake * 100 }).returning()
+      const [bet] = await tx.insert(gameBets).values({ roundId, userId: user.id, betType, selection, stakePaise: stake * 100, status: 'result_awaited' }).returning()
       const balanceAfterPaise = wallet.balancePaise - stake * 100
       await tx.update(wallets).set({ balancePaise: balanceAfterPaise, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
       await tx.insert(walletLedger).values({ userId: user.id, amountPaise: -(stake * 100), balanceAfterPaise, type: 'game_bet', note: `${betType}:${selection}`, createdAt: new Date() })
