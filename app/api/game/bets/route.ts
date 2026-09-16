@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { gameBets, gameRounds, walletLedger, wallets } from '@/lib/db/schema'
