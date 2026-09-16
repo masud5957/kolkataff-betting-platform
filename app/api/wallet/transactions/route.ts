@@ -13,7 +13,7 @@ export async function GET() {
   ])
   const items = [
     ...requests.map(request => { const isWithdrawal = request.method === 'withdrawal' || request.method.startsWith('withdrawal:'); return { id: request.id, kind: isWithdrawal ? 'withdrawal' : 'recharge', amountPaise: isWithdrawal ? -Math.abs(request.amountPaise) : Math.abs(request.amountPaise), reference: request.utr, status: request.status, createdAt: request.createdAt } }),
-    ...ledger.map(entry => { const isWithdrawal = entry.type.startsWith('withdrawal'); return { id: entry.id, kind: isWithdrawal ? 'withdrawal' : 'recharge', amountPaise: isWithdrawal ? -Math.abs(entry.amountPaise) : Math.abs(entry.amountPaise), reference: entry.note, status: 'completed', createdAt: entry.createdAt } }),
+    ...ledger.map(entry => { const isWithdrawal = entry.type.startsWith('withdrawal'); const isBet = entry.type === 'game_bet'; const isWin = entry.type === 'game_win'; return { id: entry.id, kind: isWithdrawal ? 'withdrawal' : isBet ? 'bet' : isWin ? 'win' : 'recharge', amountPaise: isWithdrawal || isBet ? -Math.abs(entry.amountPaise) : Math.abs(entry.amountPaise), reference: isBet ? `${entry.note} bet placed` : isWin ? `${entry.note} bet winning` : entry.note, status: 'completed', createdAt: entry.createdAt } }),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100)
   return NextResponse.json({ items })
 }
