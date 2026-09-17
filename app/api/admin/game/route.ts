@@ -40,6 +40,14 @@ export async function PATCH(request: Request) {
   const roundId = typeof body?.roundId === 'string' ? body.roundId : ''
   const singleResult = typeof body?.singleResult === 'string' ? body.singleResult : ''
   const pattiResult = typeof body?.pattiResult === 'string' ? body.pattiResult : ''
+  const deadlineAt = typeof body?.deadlineAt === 'string' ? body.deadlineAt : ''
+  if (roundId && deadlineAt) {
+    const parsedDeadline = new Date(deadlineAt)
+    if (Number.isNaN(parsedDeadline.getTime())) return NextResponse.json({ error: 'Enter a valid IST deadline.' }, { status: 400 })
+    const [updated] = await db.update(gameRounds).set({ deadlineAt: parsedDeadline }).where(and(eq(gameRounds.id, roundId), eq(gameRounds.status, 'open'))).returning()
+    if (!updated) return NextResponse.json({ error: 'Round is closed or unavailable.' }, { status: 409 })
+    return NextResponse.json({ round: updated })
+  }
   if (!roundId || !/^\d$/.test(singleResult) || !/^\d{3}$/.test(pattiResult)) return NextResponse.json({ error: 'Enter a valid single and patti result.' }, { status: 400 })
   const result = await db.transaction(async tx => {
     const [round] = await tx.select().from(gameRounds).where(and(eq(gameRounds.id, roundId), eq(gameRounds.status, 'open'))).limit(1)

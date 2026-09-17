@@ -92,6 +92,7 @@ export const gameRounds = pgTable('game_rounds', {
   roundDate: text('round_date').notNull(),
   roundNumber: integer('round_number').notNull(),
   status: text('status').notNull().default('open'),
+  deadlineAt: timestamp('deadline_at', { withTimezone: true }),
   singleResult: text('single_result'),
   pattiResult: text('patti_result'),
   createdBy: uuid('created_by').notNull(),

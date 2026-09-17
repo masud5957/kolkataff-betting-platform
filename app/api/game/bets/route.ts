@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     const result = await db.transaction(async (tx) => {
       const [round] = await tx.select().from(gameRounds).where(and(eq(gameRounds.id, roundId), eq(gameRounds.status, 'open'))).limit(1)
       if (!round) throw new Error('Round is closed or unavailable.')
+      if (round.deadlineAt && new Date() >= round.deadlineAt) throw new Error('Betting deadline has passed for this round.')
       const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, user.id)).limit(1)
       if (!wallet || wallet.balancePaise < stake * 100) throw new Error('Insufficient wallet balance.')
       const [bet] = await tx.insert(gameBets).values({ roundId, userId: user.id, betType, selection, stakePaise: stake * 100, status: 'result_awaited' }).returning()
