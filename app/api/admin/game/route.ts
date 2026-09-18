@@ -50,10 +50,18 @@ export async function PATCH(request: Request) {
   }
   if (!roundId || !/^\d$/.test(singleResult) || !/^\d{3}$/.test(pattiResult)) return NextResponse.json({ error: 'Enter a valid single and patti result.' }, { status: 400 })
   const result = await db.transaction(async tx => {
-    const [round] = await tx.select().from(gameRounds).where(and(eq(gameRounds.id, roundId), eq(gameRounds.status, 'open'))).limit(1)
-    if (!round) throw new Error('Round is already declared or unavailable.')
+    const [round] = await tx.select().from(gameRounds).where(eq(gameRounds.id, roundId)).limit(1)
+    if (!round || !['open', 'declared'].includes(round.status)) throw new Error('Round is unavailable for result editing.')
     const bets = await tx.select().from(gameBets).where(eq(gameBets.roundId, roundId))
     for (const bet of bets) {
+      if (bet.status === 'won' && bet.payoutPaise > 0) {
+        const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, bet.userId)).limit(1)
+        if (wallet) {
+          const balanceAfterPaise = wallet.balancePaise - bet.payoutPaise
+          await tx.update(wallets).set({ balancePaise: balanceAfterPaise, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
+          await tx.insert(walletLedger).values({ userId: bet.userId, amountPaise: -bet.payoutPaise, balanceAfterPaise, type: 'game_win_reversal', note: `Result correction reversal for ${bet.betType}:${bet.selection}`, createdAt: new Date() })
+        }
+      }
       const won = bet.betType === 'single' ? bet.selection === singleResult : bet.selection === pattiResult
       const payoutPaise = won ? bet.stakePaise * (bet.betType === 'single' ? 9 : 100) : 0
       await tx.update(gameBets).set({ status: won ? 'won' : 'lost', payoutPaise }).where(eq(gameBets.id, bet.id))
