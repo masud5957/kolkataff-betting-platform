@@ -40,7 +40,28 @@ export async function PATCH(request: Request) {
   const roundId = typeof body?.roundId === 'string' ? body.roundId : ''
   const singleResult = typeof body?.singleResult === 'string' ? body.singleResult : ''
   const pattiResult = typeof body?.pattiResult === 'string' ? body.pattiResult : ''
+  const action = typeof body?.action === 'string' ? body.action : ''
   const deadlineAt = typeof body?.deadlineAt === 'string' ? body.deadlineAt : ''
+  if (action === 'undeclare') {
+    const [round] = await db.select().from(gameRounds).where(and(eq(gameRounds.id, roundId), eq(gameRounds.status, 'declared'))).limit(1)
+    if (!round) return NextResponse.json({ error: 'Declared round not found.' }, { status: 404 })
+    const updated = await db.transaction(async tx => {
+      const bets = await tx.select().from(gameBets).where(eq(gameBets.roundId, roundId))
+      for (const bet of bets) {
+        if (bet.status === 'won' && bet.payoutPaise > 0) {
+          const [wallet] = await tx.select().from(wallets).where(eq(wallets.userId, bet.userId)).limit(1)
+          if (wallet) {
+            const balanceAfterPaise = wallet.balancePaise - bet.payoutPaise
+            await tx.update(wallets).set({ balancePaise: balanceAfterPaise, updatedAt: new Date() }).where(eq(wallets.id, wallet.id))
+            await tx.insert(walletLedger).values({ userId: bet.userId, amountPaise: -bet.payoutPaise, balanceAfterPaise, type: 'game_win_reversal', note: `Undeclared result reversal for ${bet.betType}:${bet.selection}`, createdAt: new Date() })
+          }
+        }
+        await tx.update(gameBets).set({ status: 'pending', payoutPaise: 0 }).where(eq(gameBets.id, bet.id))
+      }
+      return (await tx.update(gameRounds).set({ status: 'open', singleResult: null, pattiResult: null, declaredAt: null }).where(eq(gameRounds.id, roundId)).returning())[0]
+    })
+    return NextResponse.json({ round: updated })
+  }
   if (roundId && deadlineAt) {
     const parsedDeadline = new Date(deadlineAt)
     if (Number.isNaN(parsedDeadline.getTime())) return NextResponse.json({ error: 'Enter a valid IST deadline.' }, { status: 400 })
